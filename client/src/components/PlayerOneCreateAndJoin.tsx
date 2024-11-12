@@ -1,23 +1,27 @@
 import React from "react";
 import { motion } from "framer-motion";
+import { useSelector, useDispatch } from "react-redux";
+import { RootState, AppDispatch } from "../store";
+import { setIsPlayerOne, setPlayerOneName } from "../features/player/playerSlice";
+import getSocketInstance from "../socket";
 
-interface JoinFormProps {
-  createRoom: (event: React.FormEvent) => void;
-  playerOneName: string | null;
-  setPlayerOneName: (name: string) => void;
-}
+const PlayerOneCreateAndJoin: React.FC = () => {
+  const socket = getSocketInstance();
+  const dispatch = useDispatch<AppDispatch>();
+  const { playerOneName } = useSelector((state: RootState) => state.player);
 
-const PlayerOneCreateAndJoin: React.FC<JoinFormProps> = ({
-  createRoom,
-  playerOneName,
-  setPlayerOneName,
-}) => {
+  const createRoom = (e: { preventDefault: () => void }) => {
+    e.preventDefault();
+    if (playerOneName) {
+      socket.emit("createRoom", playerOneName);
+      dispatch(setIsPlayerOne(true));
+    }
+  };
+
   return (
     <div>
       <div className="bg-stone-900 m-auto py-5">
-        <h2 className="text-stone-50 text-center">
-          Enter Your Name to Join a Game Room.
-        </h2>
+        <h2 className="text-stone-50 text-center">Enter Your Name to Join a Game Room.</h2>
         <form className="flex justify-center py-3" onSubmit={createRoom}>
           <input
             className="pl-3 bg-stone-50 text-stone-950 rounded-md h-10"
@@ -27,7 +31,7 @@ const PlayerOneCreateAndJoin: React.FC<JoinFormProps> = ({
             maxLength={11}
             autoFocus
             value={playerOneName ?? ""}
-            onChange={(e) => setPlayerOneName(e.target.value)}
+            onChange={(e) => dispatch(setPlayerOneName(e.target.value))}
           />
           <motion.button
             whileTap={{ scale: 0.95 }}

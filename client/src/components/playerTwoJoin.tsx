@@ -1,18 +1,16 @@
 import { motion } from "framer-motion";
 import React from "react";
-import { Socket } from "socket.io-client";
+import { useSelector, useDispatch } from "react-redux";
+import { setPlayerTwoName } from "../features/player/playerSlice";
+import { RootState, AppDispatch } from "../store";
+import getSocketInstance from "../socket";
 
-interface PlayerTwoJoinProps {
-  playerTwoName: string | null;
-  socket: Socket;
-  setPlayerTwoName: (name: string) => void;
-}
+const PlayerTwoJoin: React.FC = () => {
+  const socket = getSocketInstance();
+  const dispatch = useDispatch<AppDispatch>();
 
-const PlayerTwoJoin: React.FC<PlayerTwoJoinProps> = ({
-  playerTwoName,
-  socket,
-  setPlayerTwoName,
-}) => {
+  const { playerTwoName } = useSelector((state: RootState) => state.player);
+
   const handleStartGame = (e: { preventDefault: () => void }) => {
     e.preventDefault();
     if (playerTwoName) {
@@ -23,9 +21,7 @@ const PlayerTwoJoin: React.FC<PlayerTwoJoinProps> = ({
   return (
     <div>
       <div className="bg-stone-900 m-auto py-5">
-        <h2 className="text-stone-50 text-center">
-          Enter Your Name to Start the Game
-        </h2>
+        <h2 className="text-stone-50 text-center">Enter Your Name to Start the Game</h2>
         <form className="flex justify-center py-3" onSubmit={handleStartGame}>
           <input
             className="pl-3 bg-stone-50 text-stone-950 rounded-md h-10"
@@ -35,7 +31,7 @@ const PlayerTwoJoin: React.FC<PlayerTwoJoinProps> = ({
             maxLength={11}
             autoFocus
             value={playerTwoName ?? ""}
-            onChange={(e) => setPlayerTwoName(e.target.value)}
+            onChange={(e) => dispatch(setPlayerTwoName(e.target.value))}
           />
           <motion.button
             whileTap={{ scale: 0.95 }}
