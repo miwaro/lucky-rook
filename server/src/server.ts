@@ -1,9 +1,12 @@
-const express = require("express");
-const http = require("http");
-const { Server } = require("socket.io");
-const { v4: uuidv4 } = require("uuid");
+import app from "./app";
+import env from "./util/validateEnv";
+import mongoose from "mongoose";
+import http from "http";
+import { Server } from "socket.io";
+import { v4 as uuidv4 } from "uuid";
 
-const app = express();
+const port = env.PORT;
+
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
@@ -34,8 +37,10 @@ io.on("connection", (socket) => {
     } else if (updatedRoom && updatedRoom.size === 2) {
       socket.emit("playerColor", "black");
       const firstPlayerSocketId = [...updatedRoom][0];
-      const playerOneName =
-        io.sockets.sockets.get(firstPlayerSocketId).data.playerOneName;
+      const firstPlayerSocket = io.sockets.sockets.get(firstPlayerSocketId);
+      const playerOneName = firstPlayerSocket
+        ? firstPlayerSocket.data.playerOneName
+        : null;
       socket.emit("receivePlayerOneName", playerOneName);
     }
   });
@@ -56,6 +61,12 @@ io.on("connection", (socket) => {
   });
 });
 
-server.listen(5000, () => {
-  console.log("Server is running on port 5000");
-});
+mongoose
+  .connect(env.MONGO_CONNECTION_STRING)
+  .then(() => {
+    console.log("Mongoose connected");
+    server.listen(port, () => {
+      console.log(`Server is running on port ${port}`);
+    });
+  })
+  .catch(console.error);
