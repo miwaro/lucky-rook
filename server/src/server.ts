@@ -64,7 +64,6 @@ io.on("connection", (socket) => {
 mongoose
   .connect(env.MONGO_CONNECTION_STRING)
   .then(() => {
-    console.log("Mongoose connected");
     server.listen(port, () => {
       console.log(`Server is running on port ${port}`);
     });

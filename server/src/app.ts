@@ -6,10 +6,13 @@ import createHttpError, { isHttpError } from "http-errors";
 import env from "./util/validateEnv";
 import MongoStore from "connect-mongo";
 import session from "express-session";
+const cors = require("cors");
 
 const app = express();
 
 app.use(morgan("dev"));
+
+app.use(cors({ origin: "http://localhost:5173" }));
 
 app.use(express.json());
 

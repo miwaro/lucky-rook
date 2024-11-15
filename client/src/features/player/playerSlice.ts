@@ -1,4 +1,5 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
+import { User } from "../../models/user";
 
 interface PlayerState {
   playerOneName: string | null;
@@ -7,6 +8,7 @@ interface PlayerState {
   isPlayerTwo: boolean;
   receivedPlayerOneName: string | null;
   receivedPlayerTwoName: string | null;
+  loggedInUser: User | null;
 }
 
 const initialState: PlayerState = {
@@ -16,6 +18,7 @@ const initialState: PlayerState = {
   isPlayerTwo: false,
   receivedPlayerOneName: null,
   receivedPlayerTwoName: null,
+  loggedInUser: null,
 };
 
 const playerSlice = createSlice({
@@ -40,6 +43,9 @@ const playerSlice = createSlice({
     setReceivedPlayerTwoName: (state, action: PayloadAction<string | null>) => {
       state.receivedPlayerTwoName = action.payload;
     },
+    setLoggedInUser: (state, action: PayloadAction<User | null>) => {
+      state.loggedInUser = action.payload;
+    },
   },
 });
 
@@ -50,6 +56,7 @@ export const {
   setIsPlayerTwo,
   setReceivedPlayerOneName,
   setReceivedPlayerTwoName,
+  setLoggedInUser,
 } = playerSlice.actions;
 
 export default playerSlice.reducer;

@@ -1,19 +1,31 @@
+import { useRef, useEffect } from "react";
 import { motion } from "framer-motion";
-import React from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { setPlayerTwoName } from "../features/player/playerSlice";
 import { RootState, AppDispatch } from "../store";
 import getSocketInstance from "../socket";
 
 const PlayerTwoJoin: React.FC = () => {
-  const socket = getSocketInstance();
+  const socketRef = useRef(getSocketInstance());
+  const socket = socketRef.current;
+
+  const { playerTwoName, loggedInUser } = useSelector((state: RootState) => state.player);
   const dispatch = useDispatch<AppDispatch>();
 
-  const { playerTwoName } = useSelector((state: RootState) => state.player);
+  useEffect(() => {
+    if (!loggedInUser) {
+      dispatch(setPlayerTwoName(""));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loggedInUser]);
 
   const handleStartGame = (e: { preventDefault: () => void }) => {
     e.preventDefault();
-    if (playerTwoName) {
+
+    if (loggedInUser && loggedInUser !== null) {
+      dispatch(setPlayerTwoName(loggedInUser.username));
+      socket.emit("playerTwoName", loggedInUser.username);
+    } else if (playerTwoName) {
       socket.emit("playerTwoName", playerTwoName);
     }
   };
@@ -24,19 +36,22 @@ const PlayerTwoJoin: React.FC = () => {
         <h2 className="text-stone-50 text-center">Enter Your Name to Start the Game</h2>
         <form className="flex justify-center py-3" onSubmit={handleStartGame}>
           <input
-            className="pl-3 bg-stone-50 text-stone-950 rounded-md h-10"
+            className={`${loggedInUser ? "bg-gray-300 cursor-default" : ""}
+                    pl-3 bg-stone-50 text-stone-950 rounded-md h-10`}
             type="text"
             placeholder="Name"
             minLength={3}
             maxLength={11}
-            autoFocus
-            value={playerTwoName ?? ""}
+            disabled={!loggedInUser && loggedInUser !== null}
+            autoFocus={!loggedInUser}
+            value={loggedInUser?.username || playerTwoName || ""}
             onChange={(e) => dispatch(setPlayerTwoName(e.target.value))}
           />
           <motion.button
             whileTap={{ scale: 0.95 }}
             type="submit"
             className="bg-green-700 hover:bg-green-800 ml-3 rounded-md w-12"
+            disabled={!playerTwoName && !loggedInUser?.username}
           >
             GO!
           </motion.button>
