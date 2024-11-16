@@ -9,8 +9,8 @@ import { setFen } from "../features/game/gameSlice";
 import LinkShare from "../components/linkShare";
 import { useParams, useNavigate } from "react-router-dom";
 import PlayerTwoJoin from "../components/playerTwoJoin";
-import { setIsPlayerTwo } from "../features/player/playerSlice";
-import { setGameStarted } from "../features/game/gameSlice";
+import { setIsPlayerTwo, setReceivedPlayerTwoName, setReceivedPlayerOneName } from "../features/player/playerSlice";
+import { setGameStarted, setBoardOrientation } from "../features/game/gameSlice";
 
 const Game = () => {
   const navigate = useNavigate();
@@ -49,13 +49,33 @@ const Game = () => {
   }, [roomId, socket]);
 
   useEffect(() => {
+    socket.on("receivePlayerOneName", (name: string) => {
+      dispatch(setReceivedPlayerOneName(name));
+    });
+
+    socket.on("playerTwoJoined", (name: string) => {
+      dispatch(setReceivedPlayerTwoName(name));
+    });
+
+    return () => {
+      socket.removeAllListeners();
+    };
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [socket]);
+
+  useEffect(() => {
     socket.on("move", ({ sourceSquare, targetSquare }: { sourceSquare: string; targetSquare: string }) => {
       game.move({ from: sourceSquare, to: targetSquare });
       dispatch(setFen(game.fen()));
     });
 
+    socket.on("playerColor", (color: "white" | "black") => {
+      dispatch(setBoardOrientation(color));
+    });
+
     return () => {
-      socket.off("move");
+      socket.removeAllListeners();
     };
   }, [socket, game, dispatch]);
 

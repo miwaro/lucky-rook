@@ -13,29 +13,26 @@ import {
   ListItemButton,
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
-import { User } from "../../models/user";
 import Header from "./header";
-import NavBarLoggedOutView from "./navbarLoggedOutView";
 import { useDispatch } from "react-redux";
 import { Link } from "react-router-dom";
 import { AppDispatch } from "../../store";
 import * as UsersApi from "../../network/users_api";
 import { setLoggedInUser } from "../../features/player/playerSlice";
-
-interface NavBarProps {
-  loggedInUser: User | null;
-  onSignUpClicked: () => void;
-  onLoginClicked: () => void;
-}
+import { useSelector } from "react-redux";
+import { RootState } from "../../store";
+import LoginModal from "./loginModal";
+import SignUpModal from "./signUpModal";
 
 interface MenuItem {
   text: string;
   link: string;
 }
 
-const NavBar = ({ loggedInUser, onSignUpClicked, onLoginClicked }: NavBarProps) => {
+const NavBar = () => {
   const dispatch = useDispatch<AppDispatch>();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const { loggedInUser } = useSelector((state: RootState) => state.player);
 
   async function handleMenuSelect(e: { preventDefault: () => void }, option: MenuItem) {
     e.preventDefault();
@@ -62,8 +59,13 @@ const NavBar = ({ loggedInUser, onSignUpClicked, onLoginClicked }: NavBarProps) 
 
   const menuItems = [{ text: "Logout", link: "/" }];
   return (
-    <div className="flex space-between">
-      <AppBar position="sticky" sx={{ backgroundColor: "#3f51b5" }}>
+    <div>
+      <AppBar
+        position="sticky"
+        sx={{
+          background: "linear-gradient(to left, #319e2d, #137929)",
+        }}
+      >
         <Toolbar>
           <Typography variant="h6" component={Link} to="/" color="inherit" sx={{ textDecoration: "none", flexGrow: 1 }}>
             <Box className="flex items-center">
@@ -74,7 +76,10 @@ const NavBar = ({ loggedInUser, onSignUpClicked, onLoginClicked }: NavBarProps) 
             {loggedInUser ? (
               <Typography variant="body1">{loggedInUser?.username}</Typography>
             ) : (
-              <NavBarLoggedOutView onLoginClicked={onLoginClicked} onSignUpClicked={onSignUpClicked} />
+              <Box className="flex items-center gap-4">
+                <SignUpModal />
+                <LoginModal />
+              </Box>
             )}
           </Box>
           <IconButton onClick={toggleDrawer(true)} edge="start" color="inherit" aria-label="menu" sx={{ ml: 2 }}>
@@ -83,7 +88,12 @@ const NavBar = ({ loggedInUser, onSignUpClicked, onLoginClicked }: NavBarProps) 
         </Toolbar>
       </AppBar>
       <Drawer anchor="right" open={drawerOpen} onClose={toggleDrawer(false)}>
-        <Box sx={{ width: 250 }} role="presentation" onClick={toggleDrawer(false)} onKeyDown={toggleDrawer(false)}>
+        <Box
+          sx={{ width: 250, backgroundColor: "#d5e0d1" }}
+          role="presentation"
+          onClick={toggleDrawer(false)}
+          onKeyDown={toggleDrawer(false)}
+        >
           <List>
             {menuItems.map((item, index) => (
               <ListItem key={index}>
