@@ -15,6 +15,13 @@ const io = new Server(server, {
   },
 });
 
+interface GameState {
+  currentTurn: "white" | "black";
+  players: { [socketId: string]: "white" | "black" };
+}
+
+const games: { [roomId: string]: GameState } = {};
+
 io.on("connection", (socket) => {
   socket.on("createRoom", (playerOneName) => {
     const roomId = uuidv4();
@@ -34,8 +41,17 @@ io.on("connection", (socket) => {
 
     if (updatedRoom && updatedRoom.size === 1) {
       socket.emit("playerColor", "white");
+      // Initialize game state for the room
+      if (!games[roomId]) {
+        games[roomId] = {
+          currentTurn: "white",
+          players: {},
+        };
+      }
+      games[roomId].players[socket.id] = "white";
     } else if (updatedRoom && updatedRoom.size === 2) {
       socket.emit("playerColor", "black");
+      games[roomId].players[socket.id] = "black";
       const firstPlayerSocketId = [...updatedRoom][0];
       const firstPlayerSocket = io.sockets.sockets.get(firstPlayerSocketId);
       const playerOneName = firstPlayerSocket
@@ -47,17 +63,42 @@ io.on("connection", (socket) => {
 
   socket.on("playerTwoName", (playerTwoName) => {
     socket.data.playerTwoName = playerTwoName;
-    io.to([...socket.rooms][1]).emit("playerTwoJoined", playerTwoName);
-    io.to([...socket.rooms][1]).emit("startGame");
+    const roomName = [...socket.rooms][1];
+    io.to(roomName).emit("playerTwoJoined", playerTwoName);
+    io.to(roomName).emit("startGame");
   });
 
   socket.on("move", (data) => {
     const roomName = [...socket.rooms][1];
+    const game = games[roomName];
+
+    if (!game) {
+      return socket.emit("error", "Invalid game room.");
+    }
+
+    const playerColor = game.players[socket.id];
+    if (playerColor !== game.currentTurn) {
+      return socket.emit("invalidMove", "It's not your turn");
+    }
+
     socket.to(roomName).emit("move", data);
+    game.currentTurn = game.currentTurn === "white" ? "black" : "white";
+    io.to(roomName).emit("currentTurn", game.currentTurn);
   });
 
   socket.on("disconnect", () => {
     console.log("A user disconnected:", socket.id);
+    // Remove the player from the room's game state
+    for (const roomId in games) {
+      const game = games[roomId];
+      if (game.players[socket.id]) {
+        delete game.players[socket.id];
+        // If no players are left, delete the game state
+        if (Object.keys(game.players).length === 0) {
+          delete games[roomId];
+        }
+      }
+    }
   });
 });
 

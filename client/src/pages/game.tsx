@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect } from "react";
-import { Chess } from "chess.js";
+import { useEffect, useMemo } from "react";
+import { Chess } from "../customChess";
 import { Chessboard } from "react-chessboard";
 import PlayerNames from "../components/playerNames";
 import { useSelector, useDispatch } from "react-redux";
@@ -7,23 +7,25 @@ import { RootState, AppDispatch } from "../store";
 import getSocketInstance from "../socket";
 import { setFen } from "../features/game/gameSlice";
 import LinkShare from "../components/linkShare";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import PlayerTwoJoin from "../components/playerTwoJoin";
 import { setIsPlayerTwo, setReceivedPlayerTwoName, setReceivedPlayerOneName } from "../features/player/playerSlice";
-import { setGameStarted, setBoardOrientation } from "../features/game/gameSlice";
+import { setGameStarted, setBoardOrientation, setCurrentTurn } from "../features/game/gameSlice";
 
-const Game = () => {
-  const navigate = useNavigate();
-  const { roomId } = useParams();
+interface MoveData {
+  sourceSquare: string;
+  targetSquare: string;
+}
 
-  const [game] = useState(new Chess());
+const Game: React.FC = () => {
+  const game = useMemo(() => new Chess(), []);
+  const socket = useMemo(() => getSocketInstance(), []);
+
+  const { roomId } = useParams<{ roomId: string }>();
   const { isPlayerOne, isPlayerTwo } = useSelector((state: RootState) => state.player);
   const { fen, boardOrientation, gameStarted } = useSelector((state: RootState) => state.game);
 
   const dispatch = useDispatch<AppDispatch>();
-
-  const socketRef = useRef(getSocketInstance());
-  const socket = socketRef.current;
 
   useEffect(() => {
     if (roomId) {
@@ -39,14 +41,12 @@ const Game = () => {
     if (roomId && !gameStarted) {
       socket.on("startGame", () => {
         dispatch(setGameStarted(true));
-        navigate(`/game/${roomId}`);
       });
     }
     return () => {
       socket.off("startGame");
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [roomId, socket]);
+  }, [dispatch, gameStarted, roomId, socket]);
 
   useEffect(() => {
     socket.on("receivePlayerOneName", (name: string) => {
@@ -58,15 +58,14 @@ const Game = () => {
     });
 
     return () => {
-      socket.removeAllListeners();
+      socket.off("receivePlayerOneName");
+      socket.off("playerTwoJoined");
     };
-
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [socket]);
+  }, [socket, dispatch]);
 
   useEffect(() => {
-    socket.on("move", ({ sourceSquare, targetSquare }: { sourceSquare: string; targetSquare: string }) => {
-      game.move({ from: sourceSquare, to: targetSquare });
+    socket.on("move", ({ sourceSquare, targetSquare }: MoveData) => {
+      game.move({ from: sourceSquare, to: targetSquare, promotion: "q" });
       dispatch(setFen(game.fen()));
     });
 
@@ -75,17 +74,32 @@ const Game = () => {
     });
 
     return () => {
-      socket.removeAllListeners();
+      socket.off("move");
+      socket.off("playerColor");
     };
   }, [socket, game, dispatch]);
 
+  useEffect(() => {
+    socket.on("currentTurn", (turn: "white" | "black") => {
+      dispatch(setCurrentTurn(turn));
+    });
+
+    return () => {
+      socket.off("currentTurn");
+    };
+  }, [socket, dispatch]);
+
   const makeMove = (sourceSquare: string, targetSquare: string) => {
+    const isWhiteTurn = game.turn() === "w";
+    if ((isWhiteTurn && !isPlayerOne) || (!isWhiteTurn && !isPlayerTwo)) {
+      return false;
+    }
     const move = game.move({ from: sourceSquare, to: targetSquare, promotion: "q" });
     if (move) {
       dispatch(setFen(game.fen()));
       socket.emit("move", { sourceSquare, targetSquare });
     }
-    return move !== null ? true : false;
+    return !!move;
   };
 
   function onDrop(sourceSquare: string, targetSquare: string): boolean {
