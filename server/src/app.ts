@@ -1,6 +1,7 @@
 import "dotenv/config";
 import express, { NextFunction, Request, Response } from "express";
 import userRoutes from "./routes/users";
+import gameRoutes from "./routes/game";
 import morgan from "morgan";
 import createHttpError, { isHttpError } from "http-errors";
 import env from "./util/validateEnv";
@@ -32,6 +33,7 @@ app.use(
 );
 
 app.use("/api/users", userRoutes);
+app.use("/api", gameRoutes);
 
 app.use((req, res, next) => {
   next(createHttpError(404, "Endpoint not found"));

@@ -5,6 +5,7 @@ import { useSelector, useDispatch } from "react-redux";
 import { RootState, AppDispatch } from "../store";
 import { setIsPlayerOne, setPlayerOneName } from "../features/player/playerSlice";
 import { setLink } from "../features/link/linkSlice";
+import { setGameId } from "../features/game/gameSlice"; // Import the action to set the gameId
 
 import getSocketInstance from "../socket";
 
@@ -26,9 +27,10 @@ const PlayerOneCreateAndJoin: React.FC = () => {
   }, [loggedInUser]);
 
   useEffect(() => {
-    socket.on("roomCreated", (roomId: string) => {
+    socket.on("roomCreated", ({ roomId, gameId }: { roomId: string; gameId: string }) => {
       const link = `${window.location.origin}/game/${roomId}`;
       dispatch(setLink(link));
+      dispatch(setGameId(gameId));
       navigate(`/game/${roomId}`);
     });
 

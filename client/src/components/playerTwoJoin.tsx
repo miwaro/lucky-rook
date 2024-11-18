@@ -4,10 +4,12 @@ import { useSelector, useDispatch } from "react-redux";
 import { setPlayerTwoName } from "../features/player/playerSlice";
 import { RootState, AppDispatch } from "../store";
 import getSocketInstance from "../socket";
+import { useParams } from "react-router-dom";
 
 const PlayerTwoJoin: React.FC = () => {
   const socketRef = useRef(getSocketInstance());
   const socket = socketRef.current;
+  const { roomId } = useParams<{ roomId: string }>();
 
   const { playerTwoName, loggedInUser } = useSelector((state: RootState) => state.player);
   const dispatch = useDispatch<AppDispatch>();
@@ -24,9 +26,9 @@ const PlayerTwoJoin: React.FC = () => {
 
     if (loggedInUser && loggedInUser !== null) {
       dispatch(setPlayerTwoName(loggedInUser.username));
-      socket.emit("playerTwoName", loggedInUser.username);
+      socket.emit("playerTwoName", { roomId, playerTwoName: loggedInUser.username });
     } else if (playerTwoName) {
-      socket.emit("playerTwoName", playerTwoName);
+      socket.emit("playerTwoName", { roomId, playerTwoName });
     }
   };
 
@@ -42,7 +44,7 @@ const PlayerTwoJoin: React.FC = () => {
             placeholder="Name"
             minLength={3}
             maxLength={11}
-            disabled={!loggedInUser && loggedInUser !== null}
+            disabled={!!loggedInUser}
             autoFocus={!loggedInUser}
             value={loggedInUser?.username || playerTwoName || ""}
             onChange={(e) => dispatch(setPlayerTwoName(e.target.value))}
