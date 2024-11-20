@@ -1,12 +1,14 @@
 import { useEffect } from "react";
 import { AppDispatch } from "./store";
+// import { BrowserRouter as Router, Routes, Route, useParams } from "react-router-dom";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import { setLoggedInUser } from "./features/player/playerSlice";
 import NavBar from "./components/navbar/navbar";
 import * as UsersApi from "./network/users_api";
 import Game from "./pages/game";
-import PlayerOneCreateAndJoin from "./pages/PlayerOneCreateAndJoin";
+import Lobby from "./pages/lobby";
+import Room from "./pages/room";
 
 const App = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -28,8 +30,9 @@ const App = () => {
       <div className="flex flex-col w-screen">
         <NavBar />
         <Routes>
-          <Route path="/" element={<PlayerOneCreateAndJoin />} />
-          <Route path="/game/:roomId" element={<Game />} />
+          <Route path="/" element={<Lobby />} />
+          <Route path="/room/:roomId" element={<Room />} />
+          <Route path="/room/:roomId/game/:gameId" element={<Game />} />
         </Routes>
       </div>
     </Router>

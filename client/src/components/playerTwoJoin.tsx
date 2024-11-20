@@ -1,17 +1,23 @@
 import { useRef, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useSelector, useDispatch } from "react-redux";
-import { setPlayerTwoName } from "../features/player/playerSlice";
+import { setPlayerTwoName, setPlayerTwoId } from "../features/player/playerSlice";
 import { RootState, AppDispatch } from "../store";
 import getSocketInstance from "../socket";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
+import { v4 as uuidv4 } from "uuid";
+import { setGameStarted, setGameId } from "../features/game/gameSlice";
+import { setLink } from "../features/link/linkSlice";
 
 const PlayerTwoJoin: React.FC = () => {
   const socketRef = useRef(getSocketInstance());
   const socket = socketRef.current;
+  const navigate = useNavigate();
   const { roomId } = useParams<{ roomId: string }>();
 
   const { playerTwoName, loggedInUser } = useSelector((state: RootState) => state.player);
+  const { gameStarted } = useSelector((state: RootState) => state.game);
+
   const dispatch = useDispatch<AppDispatch>();
 
   useEffect(() => {
@@ -21,14 +27,41 @@ const PlayerTwoJoin: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loggedInUser]);
 
+  useEffect(() => {
+    if (roomId && !gameStarted) {
+      console.log("gets here to useEffect");
+      socket.on("startGame", (gameId: string) => {
+        dispatch(setGameStarted(true));
+        dispatch(setGameId(gameId));
+        const link = `${window.location.origin}/room/${roomId}/game/${gameId}`;
+        dispatch(setLink(link));
+        navigate(`/room/${roomId}/game/${gameId}`);
+      });
+    }
+    return () => {
+      socket.off("startGame");
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dispatch, gameStarted, roomId, socket]);
+
   const handleStartGame = (e: { preventDefault: () => void }) => {
     e.preventDefault();
+    const anonymousPlayerId = uuidv4();
+    const { username, _id } = loggedInUser || {};
 
     if (loggedInUser && loggedInUser !== null) {
-      dispatch(setPlayerTwoName(loggedInUser.username));
-      socket.emit("playerTwoName", { roomId, playerTwoName: loggedInUser.username });
+      const playerName = username;
+      const playerId = _id;
+
+      dispatch(setPlayerTwoName(playerName || null));
+      dispatch(setPlayerTwoId(playerId || null));
+      socket.emit("playerTwoInfo", { roomId, playerTwoName: playerName, playerTwoId: playerId });
     } else if (playerTwoName) {
-      socket.emit("playerTwoName", { roomId, playerTwoName });
+      const playerName = playerTwoName;
+      const playerId = anonymousPlayerId;
+
+      socket.emit("playerTwoInfo", { roomId, playerTwoName: playerName, playerTwoId: playerId });
+      dispatch(setPlayerTwoId(playerId));
     }
   };
 

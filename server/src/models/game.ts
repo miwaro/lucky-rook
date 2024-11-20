@@ -1,43 +1,26 @@
 import mongoose, { Schema, Document } from "mongoose";
 
-interface IGame extends Document {
+interface IRoom extends Document {
   roomId: string;
-  gameId: string;
-  createdAt: Date;
-  updatedAt: Date;
-  status: string;
   playerOne: {
     userId: string;
     name: string;
     color: string;
   };
   playerTwo: {
-    userId?: string;
-    name?: string;
-    color?: string;
+    userId?: String;
+    name?: String;
+    color?: String;
   };
-  fen: string;
-  moves: {
-    moveNumber: number;
-    color: string;
-    from: string;
-    to: string;
-  }[];
-  currentTurn: string;
-  result?: string | null;
+  gameStarted: boolean;
+  gameIds: string[];
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-const GameSchema: Schema = new Schema(
+const RoomSchema: Schema = new Schema(
   {
     roomId: { type: String, required: true, unique: true },
-    gameId: { type: String, required: true, unique: true },
-    createdAt: { type: Date, default: Date.now },
-    updatedAt: { type: Date, default: Date.now },
-    status: {
-      type: String,
-      enum: ["in_progress", "completed", "abandoned"],
-      default: "in_progress",
-    },
     playerOne: {
       userId: { type: String, required: true },
       name: { type: String, required: true },
@@ -46,8 +29,39 @@ const GameSchema: Schema = new Schema(
     playerTwo: {
       userId: { type: String, required: false },
       name: { type: String, required: false },
-      color: { type: String, enum: ["white", "black"], required: true },
+      color: { type: String, enum: ["black", "white"], required: false },
     },
+    gameStarted: { type: Boolean, default: false },
+    gameIds: [{ type: String }],
+  },
+  {
+    timestamps: true,
+  }
+);
+
+const Room = mongoose.model<IRoom>("Room", RoomSchema);
+interface IGame extends Document {
+  roomId: string;
+  gameId: string;
+  fen: string;
+  moves: {
+    moveNumber: number;
+    color: string;
+    from: string;
+    to: string;
+  }[];
+  currentTurn: string;
+  status: string;
+  result?: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const GameSchema: Schema = new Schema(
+  {
+    roomId: { type: String, required: true },
+    gameId: { type: String, required: true, unique: true },
+    gameStarted: { type: Boolean, default: true },
     fen: { type: String, required: true },
     moves: [
       {
@@ -58,6 +72,11 @@ const GameSchema: Schema = new Schema(
       },
     ],
     currentTurn: { type: String, enum: ["white", "black"], required: true },
+    status: {
+      type: String,
+      enum: ["in_progress", "completed", "abandoned"],
+      default: "in_progress",
+    },
     result: {
       type: String,
       enum: ["white_wins", "black_wins", "draw", null],
@@ -71,4 +90,4 @@ const GameSchema: Schema = new Schema(
 
 const Game = mongoose.model<IGame>("Game", GameSchema);
 
-export default Game;
+export { Room, Game };

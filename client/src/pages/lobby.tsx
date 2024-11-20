@@ -3,13 +3,13 @@ import { useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useSelector, useDispatch } from "react-redux";
 import { RootState, AppDispatch } from "../store";
-import { setIsPlayerOne, setPlayerOneName } from "../features/player/playerSlice";
+import { setIsPlayerOne, setPlayerOneId, setPlayerOneName } from "../features/player/playerSlice";
 import { setLink } from "../features/link/linkSlice";
-import { setGameId } from "../features/game/gameSlice"; // Import the action to set the gameId
+import { v4 as uuidv4 } from "uuid";
 
 import getSocketInstance from "../socket";
 
-const PlayerOneCreateAndJoin: React.FC = () => {
+const Lobby: React.FC = () => {
   const socketRef = useRef(getSocketInstance());
   const socket = socketRef.current;
 
@@ -21,17 +21,17 @@ const PlayerOneCreateAndJoin: React.FC = () => {
 
   useEffect(() => {
     if (!loggedInUser) {
-      dispatch(setPlayerOneName(""));
+      dispatch(setPlayerOneName(null));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loggedInUser]);
 
   useEffect(() => {
-    socket.on("roomCreated", ({ roomId, gameId }: { roomId: string; gameId: string }) => {
-      const link = `${window.location.origin}/game/${roomId}`;
+    socket.on("roomCreated", ({ roomId }: { roomId: string }) => {
+      const link = `${window.location.origin}/room/${roomId}`;
       dispatch(setLink(link));
-      dispatch(setGameId(gameId));
-      navigate(`/game/${roomId}`);
+      // dispatch(setGameId(gameId));
+      navigate(`/room/${roomId}`);
     });
 
     return () => {
@@ -43,13 +43,18 @@ const PlayerOneCreateAndJoin: React.FC = () => {
 
   const createRoom = (e: { preventDefault: () => void }) => {
     e.preventDefault();
+    const anonymousPlayerId = uuidv4();
+
     if (loggedInUser && loggedInUser !== null) {
-      dispatch(setPlayerOneName(loggedInUser.username));
-      socket.emit("createRoom", loggedInUser.username);
+      const { username, _id } = loggedInUser;
+      dispatch(setPlayerOneName(username));
+      dispatch(setPlayerOneId(_id || null));
       dispatch(setIsPlayerOne(true));
+      socket.emit("createRoom", username, _id);
     } else if (playerOneName) {
-      socket.emit("createRoom", playerOneName);
+      socket.emit("createRoom", playerOneName, anonymousPlayerId);
       dispatch(setIsPlayerOne(true));
+      dispatch(setPlayerOneId(anonymousPlayerId));
     }
   };
 
@@ -85,4 +90,4 @@ const PlayerOneCreateAndJoin: React.FC = () => {
   );
 };
 
-export default PlayerOneCreateAndJoin;
+export default Lobby;

@@ -5,23 +5,16 @@ import http from "http";
 import { Server } from "socket.io";
 import { v4 as uuidv4 } from "uuid";
 import {
-  createGame as createGameService,
-  updatePlayerTwo,
+  createRoom as createRoomService,
+  addPlayerTwoAndCreateGame,
 } from "./services/gameService";
-import Game from "./models/game";
 
 const port = env.PORT;
 
 const server = http.createServer(app);
-const io = new Server(server, {
-  cors: {
-    origin: "http://localhost:5173",
-    methods: ["GET", "POST"],
-  },
-});
+const io = new Server(server);
 
 interface GameState {
-  gameId: string;
   currentTurn: "white" | "black";
   players: { [socketId: string]: "white" | "black" };
 }
@@ -29,27 +22,23 @@ interface GameState {
 const games: { [roomId: string]: GameState } = {};
 
 io.on("connection", (socket) => {
-  socket.on("createRoom", async (playerOneName) => {
+  socket.on("createRoom", async (playerOneName, id) => {
     try {
       const roomId = uuidv4();
-      const gameId = uuidv4(); // TODO: possibly remove and fetch gameId instead
 
       const playerOne = {
-        userId: socket.id,
+        userId: id,
         name: playerOneName,
         color: "white",
       };
 
+      await createRoomService(roomId, playerOne);
+
       socket.data.playerOneName = playerOneName;
 
-      // Save the new game to the database
-      await createGameService(roomId, playerOne);
+      games[roomId] = { currentTurn: "white", players: {} };
 
-      // Store game info in the server memory
-      games[roomId] = { gameId, currentTurn: "white", players: {} };
-
-      // Emit roomId and gameId back to the client
-      socket.emit("roomCreated", { roomId, gameId });
+      socket.emit("roomCreated", { roomId });
     } catch (error) {
       socket.emit("error", "Unable to create game.");
     }
@@ -67,17 +56,11 @@ io.on("connection", (socket) => {
 
       const updatedRoom = io.sockets.adapter.rooms.get(roomId);
 
-      const game = await Game.findOne({ roomId: roomId.trim() });
-      if (!game) {
-        throw new Error("Game not found for roomId: " + roomId);
-      }
-      const gameId = game.gameId;
       if (updatedRoom && updatedRoom.size === 1) {
         socket.emit("playerColor", "white");
 
         if (!games[roomId]) {
           games[roomId] = {
-            gameId: gameId,
             currentTurn: "white",
             players: {},
           };
@@ -99,26 +82,20 @@ io.on("connection", (socket) => {
     }
   });
 
-  socket.on("playerTwoName", async (data) => {
-    const { roomId, playerTwoName } = data;
+  socket.on("playerTwoInfo", async (data) => {
+    const { roomId, playerTwoName, playerTwoId } = data;
 
     try {
-      const game = await Game.findOne({ roomId: roomId.trim() });
-      if (!game) {
-        throw new Error("Game not found for roomId: " + roomId);
-      }
-
-      const gameId = game.gameId;
-
       const playerTwo = {
-        userId: socket.id,
+        userId: playerTwoId,
         name: playerTwoName,
         color: "black",
       };
 
-      await updatePlayerTwo(roomId, gameId, playerTwo);
+      const gameId = uuidv4();
+      await addPlayerTwoAndCreateGame(gameId, roomId, playerTwo);
       io.to(roomId).emit("playerTwoJoined", playerTwoName);
-      io.to(roomId).emit("startGame");
+      io.to(roomId).emit("startGame", gameId);
     } catch (error) {
       console.error("Error updating Player Two:", error);
       socket.emit("error", "Unable to add Player Two.");
@@ -159,7 +136,9 @@ io.on("connection", (socket) => {
 });
 
 mongoose
-  .connect(env.MONGO_CONNECTION_STRING)
+  .connect(env.MONGO_CONNECTION_STRING, {
+    maxPoolSize: 10,
+  })
   .then(() => {
     server.listen(port, () => {
       console.log(`Server is running on port ${port}`);

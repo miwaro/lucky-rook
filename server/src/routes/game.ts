@@ -1,10 +1,19 @@
 import express from "express";
-import { createGame, updatePlayerTwoController } from "../controllers/game";
+import {
+  createRoom,
+  addPlayerTwoAndCreateGame,
+  getCurrentGameState,
+  updateGameState,
+} from "../controllers/game";
 
 const router = express.Router();
 
-router.post("/games", createGame);
+router.post("/room", createRoom);
 
-router.put("/games/playerTwo", updatePlayerTwoController);
+router.post("/room/:roomId/start-game", addPlayerTwoAndCreateGame);
+
+router.get("/room/:roomId/current-game", getCurrentGameState);
+
+router.put("/games/:roomId", updateGameState);
 
 export default router;
