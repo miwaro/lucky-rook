@@ -20,7 +20,12 @@ const Lobby: React.FC = () => {
   const { playerOneName, loggedInUser } = useSelector((state: RootState) => state.player);
 
   useEffect(() => {
-    if (!loggedInUser) {
+    if (loggedInUser) {
+      localStorage.setItem("playerOneId", loggedInUser._id);
+      dispatch(setPlayerOneId(loggedInUser._id || null));
+      dispatch(setPlayerOneName(loggedInUser.username));
+    } else {
+      localStorage.removeItem("playerOneId");
       dispatch(setPlayerOneName(null));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -30,7 +35,6 @@ const Lobby: React.FC = () => {
     socket.on("roomCreated", ({ roomId }: { roomId: string }) => {
       const link = `${window.location.origin}/room/${roomId}`;
       dispatch(setLink(link));
-      // dispatch(setGameId(gameId));
       navigate(`/room/${roomId}`);
     });
 
@@ -43,7 +47,13 @@ const Lobby: React.FC = () => {
 
   const createRoom = (e: { preventDefault: () => void }) => {
     e.preventDefault();
-    const anonymousPlayerId = uuidv4();
+
+    let id = localStorage.getItem("playerOneId");
+
+    if (!id && !loggedInUser) {
+      id = uuidv4();
+      localStorage.setItem("playerOneId", id);
+    }
 
     if (loggedInUser && loggedInUser !== null) {
       const { username, _id } = loggedInUser;
@@ -52,9 +62,12 @@ const Lobby: React.FC = () => {
       dispatch(setIsPlayerOne(true));
       socket.emit("createRoom", username, _id);
     } else if (playerOneName) {
-      socket.emit("createRoom", playerOneName, anonymousPlayerId);
+      const playerName = playerOneName;
+      const playerId = id;
+
+      socket.emit("createRoom", playerName, playerId);
       dispatch(setIsPlayerOne(true));
-      dispatch(setPlayerOneId(anonymousPlayerId));
+      dispatch(setPlayerOneId(playerId));
     }
   };
 
@@ -70,7 +83,7 @@ const Lobby: React.FC = () => {
             placeholder="Name"
             minLength={3}
             maxLength={11}
-            disabled={!loggedInUser && loggedInUser !== null}
+            disabled={!!loggedInUser}
             autoFocus={!loggedInUser}
             value={loggedInUser?.username || playerOneName || ""}
             onChange={(e) => dispatch(setPlayerOneName(e.target.value))}

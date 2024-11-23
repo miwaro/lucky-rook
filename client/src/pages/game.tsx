@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Chess } from "../customChess";
 import { Chessboard } from "react-chessboard";
 import PlayerNames from "../components/playerNames";
@@ -6,8 +6,16 @@ import { useSelector, useDispatch } from "react-redux";
 import { RootState, AppDispatch } from "../store";
 import getSocketInstance from "../socket";
 import { useParams } from "react-router-dom";
-import { getCurrentGameState, updateGameState } from "../network/games_api";
-import { setGameStarted, setCurrentTurn, setFen } from "../features/game/gameSlice";
+import { getCurrentGameState, getRoomState, updateGameState } from "../network/games_api";
+import { setGameStarted, setCurrentTurn, setFen, setBoardOrientation } from "../features/game/gameSlice";
+import {
+  setIsPlayerOne,
+  setPlayerOneId,
+  setPlayerOneName,
+  setPlayerTwoId,
+  setIsPlayerTwo,
+  setPlayerTwoName,
+} from "../features/player/playerSlice";
 
 interface MoveData {
   sourceSquare: string;
@@ -15,13 +23,19 @@ interface MoveData {
 }
 
 const Game: React.FC = () => {
-  const game = useMemo(() => new Chess(), []);
+  const [game] = useState(new Chess());
   const socket = useMemo(() => getSocketInstance(), []);
   const { isPlayerOne, isPlayerTwo } = useSelector((state: RootState) => state.player);
   const { fen, boardOrientation, currentTurn } = useSelector((state: RootState) => state.game);
   const { roomId } = useParams<{ roomId: string }>();
 
   const dispatch = useDispatch<AppDispatch>();
+
+  useEffect(() => {
+    socket.on("playerColor", (color: "white" | "black") => {
+      dispatch(setBoardOrientation(color));
+    });
+  }, [socket, dispatch]);
 
   useEffect(() => {
     if (roomId) {
@@ -31,6 +45,7 @@ const Game: React.FC = () => {
           dispatch(setFen(gameState.fen));
           dispatch(setCurrentTurn(gameState.currentTurn));
           dispatch(setGameStarted(gameState.gameStarted));
+          game.load(gameState.fen);
         } catch (error) {
           console.error("Error fetching game state:", error);
         }
@@ -38,12 +53,44 @@ const Game: React.FC = () => {
 
       fetchGameState();
     }
+  }, [roomId, dispatch, game, socket]);
+
+  useEffect(() => {
+    if (roomId) {
+      const fetchRoomState = async () => {
+        try {
+          const roomState = await getRoomState(roomId);
+          const playerOneId = localStorage.getItem("playerOneId");
+          const playerTwoId = localStorage.getItem("playerTwoId");
+
+          if (playerOneId === roomState.playerOne.userId) {
+            dispatch(setIsPlayerOne(true));
+            socket.emit("joinRoom", roomId, playerOneId, roomState.playerOne.name);
+          } else if (playerTwoId === roomState.playerTwo.userId) {
+            dispatch(setIsPlayerTwo(true));
+            socket.emit("joinRoom", roomId, playerTwoId, roomState.playerTwo.name);
+          }
+
+          dispatch(setPlayerOneName(roomState.playerOne.name));
+          dispatch(setPlayerOneId(roomState.playerOne.userId));
+          dispatch(setPlayerTwoName(roomState.playerTwo.name));
+          dispatch(setPlayerTwoId(roomState.playerTwo.userId));
+        } catch (error) {
+          console.error("Error fetching room state:", error);
+        }
+      };
+
+      fetchRoomState();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roomId, dispatch]);
 
   useEffect(() => {
     socket.on("move", ({ sourceSquare, targetSquare }: MoveData) => {
-      game.move({ from: sourceSquare, to: targetSquare, promotion: "q" });
-      dispatch(setFen(game.fen()));
+      const move = game.move({ from: sourceSquare, to: targetSquare });
+      if (move) {
+        dispatch(setFen(game.fen()));
+      }
     });
 
     return () => {
@@ -70,8 +117,8 @@ const Game: React.FC = () => {
     if (move) {
       const newFen = game.fen();
       dispatch(setFen(newFen));
-      socket.emit("move", { sourceSquare, targetSquare });
       if (roomId) {
+        socket.emit("move", { roomId, sourceSquare, targetSquare, fen: newFen });
         updateGameState(roomId, newFen, game.turn() === "w" ? "white" : "black").catch((error) => {
           console.error("Failed to update game state in the database", error);
         });

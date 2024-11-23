@@ -1,4 +1,4 @@
-export interface GameState {
+export interface Game {
   roomId: string;
   gameId: string;
   gameStarted: boolean;

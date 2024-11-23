@@ -4,6 +4,7 @@ import {
   addPlayerTwoAndCreateGame as addPlayerTwoAndCreateGameService,
   getCurrentGameState as getCurrentGameStateService,
   updateGameState as updateGameStateService,
+  getRoomState as getRoomStateService,
 } from "../services/gameService";
 
 export const createRoom: RequestHandler = async (req, res) => {
@@ -34,9 +35,6 @@ export const addPlayerTwoAndCreateGame: RequestHandler = async (req, res) => {
 
 export const getCurrentGameState: RequestHandler = async (req, res) => {
   const { roomId } = req.params;
-
-  console.log("roomID in CONTROLLER: ", roomId);
-
   try {
     const gameState = await getCurrentGameStateService(roomId);
     res.status(200).json(gameState);
@@ -59,5 +57,15 @@ export const updateGameState: RequestHandler = async (req, res) => {
   } catch (error) {
     console.error("Error updating game state:", error);
     res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const getRoomState: RequestHandler = async (req, res) => {
+  const { roomId } = req.params;
+  try {
+    const gameState = await getRoomStateService(roomId);
+    res.status(200).json(gameState);
+  } catch (error) {
+    res.status(500).json({ message: "Error retrieving Game State", error });
   }
 };

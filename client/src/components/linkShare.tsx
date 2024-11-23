@@ -2,17 +2,27 @@ import React, { useEffect } from "react";
 import { FaRegClipboard } from "react-icons/fa";
 import { motion } from "framer-motion";
 import { toast } from "react-toastify";
-import { useSelector } from "react-redux";
-import { RootState } from "../store";
+import { useSelector, useDispatch } from "react-redux";
+import { RootState, AppDispatch } from "../store";
 import "react-toastify/dist/ReactToastify.css";
 import FormatQuoteIcon from "@mui/icons-material/FormatQuote";
 import { useNavigate } from "react-router-dom";
+import { setPlayerOneId, setPlayerOneName } from "../features/player/playerSlice";
 
 const LinkShare: React.FC = () => {
   const navigate = useNavigate();
 
   const { playerOneName, loggedInUser } = useSelector((state: RootState) => state.player);
   const { link } = useSelector((state: RootState) => state.link);
+  const dispatch = useDispatch<AppDispatch>();
+
+  useEffect(() => {
+    if (loggedInUser) {
+      localStorage.setItem("playerOneId", loggedInUser._id);
+      dispatch(setPlayerOneId(loggedInUser._id || null));
+      dispatch(setPlayerOneName(loggedInUser.username));
+    }
+  }, [loggedInUser, dispatch]);
 
   useEffect(() => {
     if (!playerOneName && !loggedInUser) {

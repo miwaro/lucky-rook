@@ -6,6 +6,8 @@ import LinkShare from "../components/linkShare";
 import PlayerTwoJoin from "../components/playerTwoJoin";
 import getSocketInstance from "../socket";
 import { setGameStarted, setGameId, setBoardOrientation } from "../features/game/gameSlice";
+import { setLink } from "../features/link/linkSlice";
+
 import {
   setIsPlayerTwo,
   setPlayerTwoName,
@@ -17,24 +19,17 @@ const Room: React.FC = () => {
   const socket = getSocketInstance();
   const navigate = useNavigate();
   const { roomId } = useParams<{ roomId: string }>();
-
   const dispatch = useDispatch<AppDispatch>();
-  const { playerTwoName, isPlayerTwo, isPlayerOne } = useSelector((state: RootState) => state.player);
+  const { playerTwoName, playerTwoId, isPlayerTwo, isPlayerOne, playerOneName, playerOneId } = useSelector(
+    (state: RootState) => state.player
+  );
   const { gameStarted } = useSelector((state: RootState) => state.game);
-
   const [loading, setLoading] = useState(true);
-
-  socket.on("playerColor", (color: "white" | "black") => {
-    console.log("color", color);
-    dispatch(setBoardOrientation(color));
-  });
 
   useEffect(() => {
     if (roomId) {
-      socket.emit("joinRoom", roomId);
       socket.on("playerTwoJoined", ({ playerName }: { playerName: string }) => {
         dispatch(setPlayerTwoName(playerName));
-        dispatch(setIsPlayerTwo(true));
       });
 
       socket.on("startGame", ({ gameId }: { gameId: string }) => {
@@ -53,6 +48,26 @@ const Room: React.FC = () => {
   }, [roomId, dispatch, socket, navigate]);
 
   useEffect(() => {
+    if (roomId && !gameStarted) {
+      socket.on("startGame", (gameId: string) => {
+        dispatch(setGameStarted(true));
+        dispatch(setGameId(gameId));
+        const link = `${window.location.origin}/room/${roomId}/game/${gameId}`;
+        dispatch(setLink(link));
+        navigate(`/room/${roomId}/game/${gameId}`);
+      });
+    }
+    return () => {
+      socket.off("startGame");
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dispatch, gameStarted, roomId, socket]);
+
+  useEffect(() => {
+    socket.on("playerColor", (color: "white" | "black") => {
+      dispatch(setBoardOrientation(color));
+    });
+
     socket.on("receivePlayerOneName", (name: string) => {
       dispatch(setReceivedPlayerOneName(name));
     });
@@ -69,9 +84,11 @@ const Room: React.FC = () => {
 
   useEffect(() => {
     if (roomId) {
-      socket.emit("joinRoom", roomId);
       if (!isPlayerOne) {
         dispatch(setIsPlayerTwo(true));
+        socket.emit("joinRoom", roomId, playerTwoId, playerTwoName);
+      } else if (isPlayerOne) {
+        socket.emit("joinRoom", roomId, playerOneId, playerOneName);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

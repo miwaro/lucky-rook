@@ -15,10 +15,10 @@ import {
 import MenuIcon from "@mui/icons-material/Menu";
 import Header from "./header";
 import { useDispatch } from "react-redux";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { AppDispatch } from "../../store";
 import * as UsersApi from "../../network/users_api";
-import { setLoggedInUser } from "../../features/player/playerSlice";
+import { resetPlayerState, setLoggedInUser } from "../../features/player/playerSlice";
 import { useSelector } from "react-redux";
 import { RootState } from "../../store";
 import LoginModal from "./loginModal";
@@ -33,6 +33,7 @@ const NavBar = () => {
   const dispatch = useDispatch<AppDispatch>();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const { loggedInUser } = useSelector((state: RootState) => state.player);
+  const navigate = useNavigate();
 
   async function handleMenuSelect(e: { preventDefault: () => void }, option: MenuItem) {
     e.preventDefault();
@@ -40,6 +41,8 @@ const NavBar = () => {
       try {
         await UsersApi.logout();
         dispatch(setLoggedInUser(null));
+        dispatch(resetPlayerState());
+        navigate("/");
       } catch (error) {
         console.error(error);
         alert(error);

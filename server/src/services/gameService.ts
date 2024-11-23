@@ -36,7 +36,7 @@ export const addPlayerTwoAndCreateGame = async (
     const newGame = new Game({
       roomId,
       gameId,
-      fen: "rnbqkb1r/pppppppp/8/8/8/8/PPPPPPPP/RNBQKB1R w KQkq - 0 1",
+      fen: "start",
       currentTurn: "white",
       gameStarted: true,
     });
@@ -55,9 +55,7 @@ export const addPlayerTwoAndCreateGame = async (
 
 export const getCurrentGameState = async (roomId: string) => {
   try {
-    console.log("Fetching room with roomId:", roomId);
     const room = await Room.findOne({ roomId });
-
     if (!room || room.gameIds.length === 0) {
       throw new Error("Room or current game not found");
     }
@@ -92,6 +90,21 @@ export const updateGameState = async (
     return updatedGame;
   } catch (error) {
     console.error("Error updating game state:", error);
+    throw error;
+  }
+};
+
+export const getRoomState = async (roomId: string) => {
+  try {
+    const room = await Room.findOne({ roomId });
+
+    if (!room || room.gameIds.length === 0) {
+      throw new Error("Room or current game not found");
+    }
+
+    return room;
+  } catch (error) {
+    console.error("Error retrieving game state:", error);
     throw error;
   }
 };

@@ -1,6 +1,7 @@
-import { GameState } from "../models/gameState";
+import { Game } from "../models/game";
+import { Room } from "../models/room";
 
-export async function getCurrentGameState(roomId: string): Promise<GameState> {
+export async function getCurrentGameState(roomId: string): Promise<Game> {
   try {
     const response = await fetch(`/api/room/${roomId}/current-game`, { method: "GET" });
     if (!response.ok) {
@@ -33,6 +34,21 @@ export async function updateGameState(roomId: string, fen: string, currentTurn: 
     }
   } catch (error) {
     console.error("Error updating game state:", error);
+    throw error;
+  }
+}
+
+export async function getRoomState(roomId: string): Promise<Room> {
+  try {
+    const response = await fetch(`/api/room/${roomId}/`, { method: "GET" });
+    if (!response.ok) {
+      throw new Error(`Failed to fetch room state: ${response.statusText}`);
+    }
+    const roomState = await response.json();
+
+    return roomState;
+  } catch (error) {
+    console.error("Error fetching game state from API:", error);
     throw error;
   }
 }

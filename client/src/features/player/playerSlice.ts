@@ -56,6 +56,7 @@ const playerSlice = createSlice({
     setLoggedInUser: (state, action: PayloadAction<User | null>) => {
       state.loggedInUser = action.payload;
     },
+    resetPlayerState: () => initialState,
   },
 });
 
@@ -69,6 +70,7 @@ export const {
   setReceivedPlayerOneName,
   setReceivedPlayerTwoName,
   setLoggedInUser,
+  resetPlayerState,
 } = playerSlice.actions;
 
 export default playerSlice.reducer;
