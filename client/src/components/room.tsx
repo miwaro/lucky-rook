@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { useParams, useNavigate } from "react-router-dom";
 import { RootState, AppDispatch } from "../store";
@@ -18,50 +18,42 @@ import {
 const Room: React.FC = () => {
   const socket = getSocketInstance();
   const navigate = useNavigate();
-  const { roomId } = useParams<{ roomId: string }>();
+  const { gameId } = useParams<{ gameId: string }>();
   const dispatch = useDispatch<AppDispatch>();
   const { playerTwoName, playerTwoId, isPlayerTwo, isPlayerOne, playerOneName, playerOneId } = useSelector(
     (state: RootState) => state.player
   );
   const { gameStarted } = useSelector((state: RootState) => state.game);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (roomId) {
+    if (gameId) {
       socket.on("playerTwoJoined", ({ playerName }: { playerName: string }) => {
         dispatch(setPlayerTwoName(playerName));
-      });
-
-      socket.on("startGame", ({ gameId }: { gameId: string }) => {
         dispatch(setGameStarted(true));
-        dispatch(setGameId(gameId));
-        navigate(`/room/${roomId}/game/${gameId}`);
       });
-
-      setLoading(false);
     }
 
     return () => {
       socket.off("playerTwoJoined");
       socket.off("startGame");
     };
-  }, [roomId, dispatch, socket, navigate]);
+  }, [gameId, dispatch, socket]);
 
   useEffect(() => {
-    if (roomId && !gameStarted) {
+    if (gameId && !gameStarted) {
       socket.on("startGame", (gameId: string) => {
         dispatch(setGameStarted(true));
         dispatch(setGameId(gameId));
-        const link = `${window.location.origin}/room/${roomId}/game/${gameId}`;
+        const link = `${window.location.origin}/${gameId}`;
         dispatch(setLink(link));
-        navigate(`/room/${roomId}/game/${gameId}`);
+        navigate(`/${gameId}/`);
       });
     }
     return () => {
       socket.off("startGame");
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dispatch, gameStarted, roomId, socket]);
+  }, [dispatch, gameStarted, gameId, socket]);
 
   useEffect(() => {
     socket.on("playerColor", (color: "white" | "black") => {
@@ -83,25 +75,21 @@ const Room: React.FC = () => {
   }, [socket, dispatch]);
 
   useEffect(() => {
-    if (roomId) {
+    if (gameId) {
       if (!isPlayerOne) {
         dispatch(setIsPlayerTwo(true));
-        socket.emit("joinRoom", roomId, playerTwoId, playerTwoName);
+        socket.emit("joinGame", gameId, playerTwoId, playerTwoName);
       } else if (isPlayerOne) {
-        socket.emit("joinRoom", roomId, playerOneId, playerOneName);
+        socket.emit("joinGame", gameId, playerOneId, playerOneName);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [roomId]);
-
-  if (loading) {
-    return <div>Loading...</div>;
-  }
+  }, [gameId]);
 
   return (
     <div className="room-setup">
-      {!playerTwoName && !isPlayerTwo && <LinkShare />}
-      {isPlayerTwo && !gameStarted && <PlayerTwoJoin />}
+      {!isPlayerTwo && <LinkShare />}
+      {isPlayerTwo && <PlayerTwoJoin />}
     </div>
   );
 };

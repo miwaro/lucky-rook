@@ -1,30 +1,28 @@
 import { RequestHandler } from "express";
 import {
-  createRoom as createRoomService,
+  createGame as createGameService,
   addPlayerTwoAndCreateGame as addPlayerTwoAndCreateGameService,
   getCurrentGameState as getCurrentGameStateService,
   updateGameState as updateGameStateService,
-  getRoomState as getRoomStateService,
 } from "../services/gameService";
 
-export const createRoom: RequestHandler = async (req, res) => {
-  const { roomId, playerOne } = req.body;
+export const createGame: RequestHandler = async (req, res) => {
+  const { gameId, playerOne } = req.body;
 
   try {
-    const room = await createRoomService(roomId, playerOne);
-    res.status(201).json(room);
+    const game = await createGameService(gameId, playerOne);
+    res.status(201).json(game);
   } catch (error) {
-    res.status(500).json({ message: "Error creating room", error });
+    res.status(500).json({ message: "Error creating game", error });
   }
 };
 
 export const addPlayerTwoAndCreateGame: RequestHandler = async (req, res) => {
-  const { gameId, roomId, playerTwo } = req.body;
+  const { gameId, playerTwo } = req.body;
 
   try {
     const updatedGame = await addPlayerTwoAndCreateGameService(
       gameId,
-      roomId,
       playerTwo
     );
     res.status(200).json(updatedGame);
@@ -34,9 +32,9 @@ export const addPlayerTwoAndCreateGame: RequestHandler = async (req, res) => {
 };
 
 export const getCurrentGameState: RequestHandler = async (req, res) => {
-  const { roomId } = req.params;
+  const { gameId } = req.params;
   try {
-    const gameState = await getCurrentGameStateService(roomId);
+    const gameState = await getCurrentGameStateService(gameId);
     res.status(200).json(gameState);
   } catch (error) {
     res.status(500).json({ message: "Error retrieving Game State", error });
@@ -44,11 +42,11 @@ export const getCurrentGameState: RequestHandler = async (req, res) => {
 };
 
 export const updateGameState: RequestHandler = async (req, res) => {
-  const { roomId } = req.params;
+  const { gameId } = req.params;
   const { fen, currentTurn } = req.body;
 
   try {
-    const updatedGame = await updateGameStateService(roomId, fen, currentTurn);
+    const updatedGame = await updateGameStateService(gameId, fen, currentTurn);
     if (!updatedGame) {
       res.status(404).json({ message: "Game not found" });
       return;
@@ -57,15 +55,5 @@ export const updateGameState: RequestHandler = async (req, res) => {
   } catch (error) {
     console.error("Error updating game state:", error);
     res.status(500).json({ message: "Internal server error" });
-  }
-};
-
-export const getRoomState: RequestHandler = async (req, res) => {
-  const { roomId } = req.params;
-  try {
-    const gameState = await getRoomStateService(roomId);
-    res.status(200).json(gameState);
-  } catch (error) {
-    res.status(500).json({ message: "Error retrieving Game State", error });
   }
 };

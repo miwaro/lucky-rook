@@ -2,9 +2,9 @@ import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { User } from "../../models/user";
 
 interface PlayerState {
-  playerOneName: string | null;
+  playerOneName: string;
   playerOneId: string | null;
-  playerTwoName: string | null;
+  playerTwoName: string;
   playerTwoId: string | null;
   isPlayerOne: boolean;
   isPlayerTwo: boolean;
@@ -14,9 +14,9 @@ interface PlayerState {
 }
 
 const initialState: PlayerState = {
-  playerOneName: null,
+  playerOneName: "anonymous",
   playerOneId: null,
-  playerTwoName: null,
+  playerTwoName: "anonymous",
   playerTwoId: null,
   isPlayerOne: false,
   isPlayerTwo: false,
@@ -29,13 +29,13 @@ const playerSlice = createSlice({
   name: "player",
   initialState,
   reducers: {
-    setPlayerOneName: (state, action: PayloadAction<string | null>) => {
+    setPlayerOneName: (state, action: PayloadAction<string>) => {
       state.playerOneName = action.payload;
     },
     setPlayerOneId: (state, action: PayloadAction<string | null>) => {
       state.playerOneId = action.payload;
     },
-    setPlayerTwoName: (state, action: PayloadAction<string | null>) => {
+    setPlayerTwoName: (state, action: PayloadAction<string>) => {
       state.playerTwoName = action.payload;
     },
     setPlayerTwoId: (state, action: PayloadAction<string | null>) => {

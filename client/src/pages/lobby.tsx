@@ -14,10 +14,17 @@ const Lobby: React.FC = () => {
   const socket = socketRef.current;
 
   const navigate = useNavigate();
-  const { roomId } = useParams();
+  const { gameId } = useParams();
 
   const dispatch = useDispatch<AppDispatch>();
   const { playerOneName, loggedInUser } = useSelector((state: RootState) => state.player);
+
+  useEffect(() => {
+    if (!playerOneName) {
+      dispatch(setPlayerOneName("anonymous"));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (loggedInUser) {
@@ -26,32 +33,33 @@ const Lobby: React.FC = () => {
       dispatch(setPlayerOneName(loggedInUser.username));
     } else {
       localStorage.removeItem("playerOneId");
-      dispatch(setPlayerOneName(null));
+      dispatch(setPlayerOneName("anonymous"));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loggedInUser]);
 
   useEffect(() => {
-    socket.on("roomCreated", ({ roomId }: { roomId: string }) => {
-      const link = `${window.location.origin}/room/${roomId}`;
+    socket.on("gameCreated", ({ gameId }: { gameId: string }) => {
+      const link = `${window.location.origin}/${gameId}`;
       dispatch(setLink(link));
-      navigate(`/room/${roomId}`);
+      navigate(`/${gameId}`);
     });
 
     return () => {
-      socket.off("roomCreated");
+      socket.off("gameCreated");
     };
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [socket, roomId]);
+  }, [socket, gameId]);
 
-  const createRoom = (e: { preventDefault: () => void }) => {
+  const createGame = (e: { preventDefault: () => void }) => {
     e.preventDefault();
 
     let id = localStorage.getItem("playerOneId");
+    const gameId = uuidv4().slice(0, 8);
 
     if (!id && !loggedInUser) {
-      id = uuidv4();
+      id = uuidv4().slice(0, 8);
       localStorage.setItem("playerOneId", id);
     }
 
@@ -60,12 +68,11 @@ const Lobby: React.FC = () => {
       dispatch(setPlayerOneName(username));
       dispatch(setPlayerOneId(_id || null));
       dispatch(setIsPlayerOne(true));
-      socket.emit("createRoom", username, _id);
+      socket.emit("createGame", username, _id, gameId);
     } else if (playerOneName) {
       const playerName = playerOneName;
       const playerId = id;
-
-      socket.emit("createRoom", playerName, playerId);
+      socket.emit("createGame", playerName, playerId, gameId);
       dispatch(setIsPlayerOne(true));
       dispatch(setPlayerOneId(playerId));
     }
@@ -73,29 +80,16 @@ const Lobby: React.FC = () => {
 
   return (
     <div>
-      <div className="bg-stone-900 m-auto py-5">
-        <h2 className="text-stone-50 text-center">Enter Your Name to Join a Game Room.</h2>
-        <form className="flex justify-center py-3" onSubmit={createRoom}>
-          <input
-            className={`${loggedInUser ? "bg-gray-300 cursor-default" : ""}
-            pl-3 bg-stone-50 text-stone-950 rounded-md h-10`}
-            type="text"
-            placeholder="Name"
-            minLength={3}
-            maxLength={11}
-            disabled={!!loggedInUser}
-            autoFocus={!loggedInUser}
-            value={loggedInUser?.username || playerOneName || ""}
-            onChange={(e) => dispatch(setPlayerOneName(e.target.value))}
-          />
+      <div>
+        <form className="flex justify-center py-3" onSubmit={createGame}>
           <motion.button
             whileTap={{ scale: 0.95 }}
             type="submit"
-            className="bg-green-700 hover:bg-green-800 ml-3 rounded-md w-12 caret-transparent"
+            className="bg-orange-700 mt-8 hover:bg-orange-800 ml-3 rounded-md p-3 caret-transparent"
             disabled={!playerOneName && !loggedInUser?.username}
             tabIndex={-1}
           >
-            GO!
+            Play a Friend!
           </motion.button>
         </form>
       </div>

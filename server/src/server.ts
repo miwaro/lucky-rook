@@ -5,7 +5,7 @@ import http from "http";
 import { Server } from "socket.io";
 import { v4 as uuidv4 } from "uuid";
 import {
-  createRoom as createRoomService,
+  createGame as createGameService,
   addPlayerTwoAndCreateGame,
 } from "./services/gameService";
 
@@ -26,24 +26,22 @@ interface GameState {
   };
 }
 
-const games: { [roomId: string]: GameState } = {};
+const games: { [gameId: string]: GameState } = {};
 
 io.on("connection", (socket) => {
-  socket.on("createRoom", async (playerOneName, userId) => {
+  socket.on("createGame", async (playerOneName, userId, gameId) => {
     try {
-      const roomId = uuidv4();
-
       const playerOne = {
         userId,
         name: playerOneName,
         color: "white",
       };
 
-      await createRoomService(roomId, playerOne);
+      await createGameService(gameId, playerOne);
 
       socket.data.userId = userId;
 
-      games[roomId] = {
+      games[gameId] = {
         currentTurn: "white",
         fen: "start",
         players: {
@@ -55,24 +53,24 @@ io.on("connection", (socket) => {
         },
       };
 
-      socket.emit("roomCreated", { roomId });
+      socket.emit("gameCreated", { gameId });
     } catch (error) {
-      console.error("Error creating room:", error);
+      console.error("Error creating game:", error);
       socket.emit("error", "Unable to create game.");
     }
   });
 
-  socket.on("joinRoom", async (roomId, userId, playerName) => {
+  socket.on("joinGame", async (gameId, userId, playerName) => {
     try {
       // Check if player is reconnecting
-      if (games[roomId]?.players[userId]) {
-        const playerData = games[roomId].players[userId];
+      if (games[gameId]?.players[userId]) {
+        const playerData = games[gameId].players[userId];
         playerData.socketId = socket.id;
 
-        await socket.join(roomId);
+        await socket.join(gameId);
         socket.emit("playerColor", playerData.color);
 
-        const game = games[roomId];
+        const game = games[gameId];
         if (game) {
           socket.emit("gameState", {
             fen: game.fen,
@@ -80,47 +78,47 @@ io.on("connection", (socket) => {
           });
         }
       } else {
-        const room = io.sockets.adapter.rooms.get(roomId);
+        const game = io.sockets.adapter.rooms.get(gameId);
 
-        if (room && room.size >= 2) {
-          return socket.emit("error", "Room is full. Please try another room.");
+        if (game && game.size >= 2) {
+          return socket.emit("error", "Game is full. Please try another game.");
         }
 
-        await socket.join(roomId);
+        await socket.join(gameId);
 
-        if (room && room.size === 1) {
+        if (game && game.size === 1) {
           socket.emit("playerColor", "white");
-          games[roomId].players[userId] = {
+          games[gameId].players[userId] = {
             socketId: socket.id,
             color: "white",
             name: playerName,
           };
-        } else if (room && room.size === 2) {
+        } else if (game && game.size === 2) {
           socket.emit("playerColor", "black");
-          games[roomId].players[userId] = {
+          games[gameId].players[userId] = {
             socketId: socket.id,
             color: "black",
             name: playerName,
           };
 
-          const playerOneUserId = Object.keys(games[roomId].players).find(
-            (id) => games[roomId].players[id].color === "white"
+          const playerOneUserId = Object.keys(games[gameId].players).find(
+            (id) => games[gameId].players[id].color === "white"
           );
 
           if (playerOneUserId) {
-            const playerOneName = games[roomId].players[playerOneUserId].name;
+            const playerOneName = games[gameId].players[playerOneUserId].name;
             socket.emit("receivePlayerOneName", playerOneName);
           }
         }
       }
     } catch (error) {
-      console.error("Error joining room:", error);
-      socket.emit("error", "Unable to join the room.");
+      console.error("Error joining game:", error);
+      socket.emit("error", "Unable to join the game.");
     }
   });
 
   socket.on("playerTwoInfo", async (data) => {
-    const { roomId, playerTwoName, playerTwoId } = data;
+    const { gameId, playerTwoName, playerTwoId } = data;
 
     try {
       const playerTwo = {
@@ -129,10 +127,8 @@ io.on("connection", (socket) => {
         color: "black",
       };
 
-      const gameId = uuidv4();
-      await addPlayerTwoAndCreateGame(gameId, roomId, playerTwo);
-      io.to(roomId).emit("playerTwoJoined", playerTwoName);
-      io.to(roomId).emit("startGame", gameId);
+      await addPlayerTwoAndCreateGame(gameId, playerTwo);
+      io.to(gameId).emit("playerTwoJoined", playerTwoName);
     } catch (error) {
       console.error("Error updating Player Two:", error);
       socket.emit("error", "Unable to add Player Two.");
@@ -141,12 +137,12 @@ io.on("connection", (socket) => {
   });
 
   socket.on("move", (data) => {
-    const roomName = [...socket.rooms][1];
-    const game = games[roomName];
-    const { roomId, sourceSquare, targetSquare, fen } = data;
+    const gameName = [...socket.rooms][1];
+    const game = games[gameName];
+    const { gameId, sourceSquare, targetSquare, fen } = data;
 
     if (!game) {
-      return socket.emit("error", "Invalid game room.");
+      return socket.emit("error", "Invalid game.");
     }
 
     const playerColor = Object.values(game.players).find(
@@ -158,15 +154,15 @@ io.on("connection", (socket) => {
     }
 
     game.fen = fen;
-    socket.to(roomName).emit("move", { sourceSquare, targetSquare });
+    socket.to(gameName).emit("move", { sourceSquare, targetSquare });
     game.currentTurn = game.currentTurn === "white" ? "black" : "white";
-    io.to(roomName).emit("currentTurn", game.currentTurn);
+    io.to(gameName).emit("currentTurn", game.currentTurn);
   });
 
   socket.on("disconnect", () => {
     console.log("A user disconnected:", socket.id);
-    for (const roomId in games) {
-      const game = games[roomId];
+    for (const gameId in games) {
+      const game = games[gameId];
       for (const userId in game.players) {
         if (game.players[userId].socketId === socket.id) {
           game.players[userId].socketId = null;

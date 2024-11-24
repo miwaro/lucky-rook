@@ -1,50 +1,46 @@
-import { Room, Game } from "../models/game";
+import { Game } from "../models/game";
 
-export const createRoom = async (
-  roomId: string,
+export const createGame = async (
+  gameId: string,
   playerOne: { userId: string; name: string; color: string }
 ) => {
-  const newRoom = new Room({
-    roomId,
+  const newGame = new Game({
+    gameId,
     playerOne,
     gameStarted: false,
     gameIds: [],
   });
 
   try {
-    return await newRoom.save();
+    return await newGame.save();
   } catch (error) {
-    console.error("Error creating room:", error);
+    console.error("Error creating game:", error);
     throw error;
   }
 };
 
 export const addPlayerTwoAndCreateGame = async (
   gameId: string,
-  roomId: string,
   playerTwo: { userId: string; name: string; color: string }
 ) => {
   try {
-    const room = await Room.findOne({ roomId });
+    const game = await Game.findOne({ gameId });
 
-    if (!room) {
-      throw new Error("Room not found");
+    if (!game) {
+      throw new Error("Game not found");
     }
 
-    room.playerTwo = playerTwo;
+    console.log("Before updating playerTwo:", game);
+    game.playerTwo = playerTwo;
+    game.markModified("playerTwo"); // Explicitly mark playerTwo as modified
+    console.log("After updating playerTwo:", game);
 
-    const newGame = new Game({
-      roomId,
-      gameId,
-      fen: "start",
-      currentTurn: "white",
-      gameStarted: true,
-    });
+    game.gameStarted = true;
+    game.fen = "start";
+    game.currentTurn = "white";
 
-    const savedGame = await newGame.save();
-
-    await Room.updateOne({ roomId }, { $push: { gameIds: gameId } });
-    await room.save();
+    const savedGame = await game.save();
+    console.log("Saved game:", savedGame); // Check the saved document
 
     return savedGame;
   } catch (error) {
@@ -53,21 +49,12 @@ export const addPlayerTwoAndCreateGame = async (
   }
 };
 
-export const getCurrentGameState = async (roomId: string) => {
+export const getCurrentGameState = async (gameId: string) => {
   try {
-    const room = await Room.findOne({ roomId });
-    if (!room || room.gameIds.length === 0) {
-      throw new Error("Room or current game not found");
-    }
-
-    const lastGameId = room.gameIds[room.gameIds.length - 1];
-
-    const game = await Game.findOne({ gameId: lastGameId });
-
+    const game = await Game.findOne({ gameId });
     if (!game) {
-      throw new Error("Game not found");
+      throw new Error("game not found");
     }
-
     return game;
   } catch (error) {
     console.error("Error retrieving game state:", error);
@@ -76,13 +63,13 @@ export const getCurrentGameState = async (roomId: string) => {
 };
 
 export const updateGameState = async (
-  roomId: string,
+  gameId: string,
   fen: string,
   currentTurn: "white" | "black"
 ) => {
   try {
     const updatedGame = await Game.findOneAndUpdate(
-      { roomId },
+      { gameId },
       { fen, currentTurn },
       { new: true }
     );
@@ -90,21 +77,6 @@ export const updateGameState = async (
     return updatedGame;
   } catch (error) {
     console.error("Error updating game state:", error);
-    throw error;
-  }
-};
-
-export const getRoomState = async (roomId: string) => {
-  try {
-    const room = await Room.findOne({ roomId });
-
-    if (!room || room.gameIds.length === 0) {
-      throw new Error("Room or current game not found");
-    }
-
-    return room;
-  } catch (error) {
-    console.error("Error retrieving game state:", error);
     throw error;
   }
 };

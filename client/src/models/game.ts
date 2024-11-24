@@ -1,6 +1,12 @@
+interface Player {
+  userId: string;
+  name: string;
+  color: string;
+}
 export interface Game {
-  roomId: string;
   gameId: string;
+  playerOne: Player;
+  playerTwo: Player;
   gameStarted: boolean;
   currentTurn: string;
   fen: string;

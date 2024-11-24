@@ -1,22 +1,19 @@
 import express from "express";
 import {
-  createRoom,
+  createGame,
   addPlayerTwoAndCreateGame,
   getCurrentGameState,
   updateGameState,
-  getRoomState,
 } from "../controllers/game";
 
 const router = express.Router();
 
-router.post("/room", createRoom);
+router.post("/game", createGame);
 
-router.post("/room/:roomId/start-game", addPlayerTwoAndCreateGame);
+router.post("/game/:gameId/start-game", addPlayerTwoAndCreateGame);
 
-router.get("/room/:roomId/current-game", getCurrentGameState);
+router.get("/game/:gameId/current-game", getCurrentGameState);
 
-router.put("/games/:roomId", updateGameState);
-
-router.get("/room/:roomId/", getRoomState);
+router.put("/games/:gameId", updateGameState);
 
 export default router;

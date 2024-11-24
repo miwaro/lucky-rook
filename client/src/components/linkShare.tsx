@@ -35,7 +35,7 @@ const LinkShare: React.FC = () => {
     navigator.clipboard
       .writeText(link)
       .then(() => {
-        toast.success("Link copied, the game will begin when they join the room!");
+        toast.success("Link copied, the game will begin when they join!");
       })
       .catch((err) => {
         toast.error("Failed to copy link!");
