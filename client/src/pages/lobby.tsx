@@ -1,20 +1,19 @@
 import React, { useEffect, useRef } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useSelector, useDispatch } from "react-redux";
 import { RootState, AppDispatch } from "../store";
 import { setIsPlayerOne, setPlayerOneId, setPlayerOneName } from "../features/player/playerSlice";
 import { setLink } from "../features/link/linkSlice";
 import { v4 as uuidv4 } from "uuid";
-
 import getSocketInstance from "../socket";
+import { setGameId } from "../features/game/gameSlice";
 
 const Lobby: React.FC = () => {
   const socketRef = useRef(getSocketInstance());
   const socket = socketRef.current;
 
   const navigate = useNavigate();
-  const { gameId } = useParams();
 
   const dispatch = useDispatch<AppDispatch>();
   const { playerOneName, loggedInUser } = useSelector((state: RootState) => state.player);
@@ -23,24 +22,24 @@ const Lobby: React.FC = () => {
     if (!playerOneName) {
       dispatch(setPlayerOneName("anonymous"));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [playerOneName, dispatch]);
 
   useEffect(() => {
     if (loggedInUser) {
-      localStorage.setItem("playerOneId", loggedInUser._id);
-      dispatch(setPlayerOneId(loggedInUser._id || null));
-      dispatch(setPlayerOneName(loggedInUser.username));
+      const { username, _id } = loggedInUser;
+      localStorage.setItem("playerId", _id);
+      dispatch(setPlayerOneId(_id || null));
+      dispatch(setPlayerOneName(username));
     } else {
-      localStorage.removeItem("playerOneId");
+      localStorage.removeItem("playerId");
       dispatch(setPlayerOneName("anonymous"));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loggedInUser]);
+  }, [loggedInUser, dispatch]);
 
   useEffect(() => {
     socket.on("gameCreated", ({ gameId }: { gameId: string }) => {
       const link = `${window.location.origin}/${gameId}`;
+      dispatch(setGameId(gameId));
       dispatch(setLink(link));
       navigate(`/${gameId}`);
     });
@@ -48,22 +47,20 @@ const Lobby: React.FC = () => {
     return () => {
       socket.off("gameCreated");
     };
+  }, [dispatch, navigate, socket]);
 
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [socket, gameId]);
-
-  const createGame = (e: { preventDefault: () => void }) => {
+  const createGame = (e: React.FormEvent) => {
     e.preventDefault();
 
-    let id = localStorage.getItem("playerOneId");
+    let id = localStorage.getItem("playerId");
     const gameId = uuidv4().slice(0, 8);
 
     if (!id && !loggedInUser) {
       id = uuidv4().slice(0, 8);
-      localStorage.setItem("playerOneId", id);
+      localStorage.setItem("playerId", id);
     }
 
-    if (loggedInUser && loggedInUser !== null) {
+    if (loggedInUser) {
       const { username, _id } = loggedInUser;
       dispatch(setPlayerOneName(username));
       dispatch(setPlayerOneId(_id || null));
@@ -72,9 +69,9 @@ const Lobby: React.FC = () => {
     } else if (playerOneName) {
       const playerName = playerOneName;
       const playerId = id;
-      socket.emit("createGame", playerName, playerId, gameId);
       dispatch(setIsPlayerOne(true));
       dispatch(setPlayerOneId(playerId));
+      socket.emit("createGame", playerName, playerId, gameId);
     }
   };
 
@@ -87,7 +84,6 @@ const Lobby: React.FC = () => {
             type="submit"
             className="bg-orange-700 mt-8 hover:bg-orange-800 ml-3 rounded-md p-3 caret-transparent"
             disabled={!playerOneName && !loggedInUser?.username}
-            tabIndex={-1}
           >
             Play a Friend!
           </motion.button>

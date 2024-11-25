@@ -7,6 +7,10 @@ interface GameState {
   boardOrientation: "white" | "black";
   currentTurn: "white" | "black";
   gameStarted: boolean;
+  result: string | null;
+  rematchRequestedByPlayerOne: boolean;
+  rematchRequestedByPlayerTwo: boolean;
+  isGameOver: boolean;
 }
 
 const initialState: GameState = {
@@ -15,6 +19,10 @@ const initialState: GameState = {
   boardOrientation: "white",
   currentTurn: "white",
   gameStarted: false,
+  result: null,
+  rematchRequestedByPlayerOne: false,
+  rematchRequestedByPlayerTwo: false,
+  isGameOver: false,
 };
 
 const gameSlice = createSlice({
@@ -36,8 +44,30 @@ const gameSlice = createSlice({
     setGameId(state, action: PayloadAction<string>) {
       state.gameId = action.payload;
     },
+    setResult(state, action: PayloadAction<string>) {
+      state.result = action.payload;
+    },
+    setRematchRequestedByPlayerOne(state, action: PayloadAction<boolean>) {
+      state.rematchRequestedByPlayerOne = action.payload;
+    },
+    setRematchRequestedByPlayerTwo(state, action: PayloadAction<boolean>) {
+      state.rematchRequestedByPlayerTwo = action.payload;
+    },
+    setIsGameOver(state, action: PayloadAction<boolean>) {
+      state.isGameOver = action.payload;
+    },
   },
 });
 
-export const { setFen, setBoardOrientation, setGameStarted, setCurrentTurn, setGameId } = gameSlice.actions;
+export const {
+  setFen,
+  setBoardOrientation,
+  setGameStarted,
+  setCurrentTurn,
+  setGameId,
+  setResult,
+  setRematchRequestedByPlayerOne,
+  setRematchRequestedByPlayerTwo,
+  setIsGameOver,
+} = gameSlice.actions;
 export default gameSlice.reducer;

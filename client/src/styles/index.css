@@ -1,3 +1,5 @@
+@import url("https://fonts.googleapis.com/css2?family=Rye&display=swap");
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -33,6 +35,7 @@ body {
 }
 
 .header {
+  font-family: "Rye", serif;
   display: flex;
   justify-content: start;
   font-size: 1.5em;

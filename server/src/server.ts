@@ -3,14 +3,14 @@ import env from "./util/validateEnv";
 import mongoose from "mongoose";
 import http from "http";
 import { Server } from "socket.io";
-import { v4 as uuidv4 } from "uuid";
 import {
-  createGame as createGameService,
-  addPlayerTwoAndCreateGame,
+  addPlayerOne as addPlayerOneService,
+  addPlayerTwo as addPlayerTwoService,
+  startGame as startGameService,
+  createRematch as createRematchService,
 } from "./services/gameService";
 
 const port = env.PORT;
-
 const server = http.createServer(app);
 const io = new Server(server);
 
@@ -24,6 +24,9 @@ interface GameState {
       name: string;
     };
   };
+  rematchRequestedByPlayerOne: boolean;
+  rematchRequestedByPlayerTwo: boolean;
+  winner: string | null;
 }
 
 const games: { [gameId: string]: GameState } = {};
@@ -37,7 +40,7 @@ io.on("connection", (socket) => {
         color: "white",
       };
 
-      await createGameService(gameId, playerOne);
+      await addPlayerOneService(gameId, playerOne);
 
       socket.data.userId = userId;
 
@@ -51,6 +54,9 @@ io.on("connection", (socket) => {
             name: playerOneName,
           },
         },
+        rematchRequestedByPlayerOne: false,
+        rematchRequestedByPlayerTwo: false,
+        winner: null,
       };
 
       socket.emit("gameCreated", { gameId });
@@ -107,8 +113,18 @@ io.on("connection", (socket) => {
 
           if (playerOneUserId) {
             const playerOneName = games[gameId].players[playerOneUserId].name;
-            socket.emit("receivePlayerOneName", playerOneName);
+            socket.emit("receivePlayerOneInfo", {
+              playerOneName,
+              playerOneUserId,
+            });
           }
+          const playerTwo = {
+            userId,
+            name: playerName,
+            color: "black",
+          };
+
+          await addPlayerTwoService(gameId, playerTwo);
         }
       }
     } catch (error) {
@@ -117,23 +133,19 @@ io.on("connection", (socket) => {
     }
   });
 
-  socket.on("playerTwoInfo", async (data) => {
-    const { gameId, playerTwoName, playerTwoId } = data;
+  socket.on("startGame", async (gameId, playerTwoName, playerTwoId) => {
+    await startGameService(gameId);
+    const playerTwoUserId = Object.keys(games[gameId].players).find(
+      (id) => games[gameId].players[id].color === "black"
+    );
 
-    try {
-      const playerTwo = {
-        userId: playerTwoId,
-        name: playerTwoName,
-        color: "black",
-      };
-
-      await addPlayerTwoAndCreateGame(gameId, playerTwo);
-      io.to(gameId).emit("playerTwoJoined", playerTwoName);
-    } catch (error) {
-      console.error("Error updating Player Two:", error);
-      socket.emit("error", "Unable to add Player Two.");
+    if (playerTwoUserId) {
+      const playerTwoName = games[gameId].players[playerTwoUserId].name;
+      io.to(gameId).emit("playerTwoJoined", {
+        playerTwoName,
+        playerTwoUserId,
+      });
     }
-    socket.data.playerTwoName = playerTwoName;
   });
 
   socket.on("move", (data) => {
@@ -157,6 +169,47 @@ io.on("connection", (socket) => {
     socket.to(gameName).emit("move", { sourceSquare, targetSquare });
     game.currentTurn = game.currentTurn === "white" ? "black" : "white";
     io.to(gameName).emit("currentTurn", game.currentTurn);
+  });
+
+  socket.on("playerResigns", ({ gameId, isPlayerOne }) => {
+    if (!games[gameId]) {
+      return;
+    }
+
+    if (isPlayerOne) {
+      io.in(gameId).emit("gameEndsInResignation", { winner: "Black Wins" });
+      games[gameId].winner = "black";
+    } else if (isPlayerOne === false) {
+      io.in(gameId).emit("gameEndsInResignation", { winner: "White Wins" });
+      games[gameId].winner = "white";
+    }
+  });
+
+  socket.on("rematchRequest", async ({ gameId, isPlayerOne }) => {
+    if (!games[gameId]) {
+      return;
+    }
+
+    if (isPlayerOne) {
+      games[gameId].rematchRequestedByPlayerOne = true;
+    } else if (!isPlayerOne) {
+      games[gameId].rematchRequestedByPlayerTwo = true;
+    }
+
+    io.in(gameId).emit("rematchStatus", {
+      rematchRequestedByPlayerOne: games[gameId].rematchRequestedByPlayerOne,
+      rematchRequestedByPlayerTwo: games[gameId].rematchRequestedByPlayerTwo,
+    });
+
+    if (
+      games[gameId].rematchRequestedByPlayerOne &&
+      games[gameId].rematchRequestedByPlayerTwo
+    ) {
+      await createRematchService(gameId);
+      io.in(gameId).emit("startNewGame", { gameId });
+      games[gameId].rematchRequestedByPlayerOne = false;
+      games[gameId].rematchRequestedByPlayerTwo = false;
+    }
   });
 
   socket.on("disconnect", () => {

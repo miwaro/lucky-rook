@@ -1,33 +1,54 @@
 import { RequestHandler } from "express";
 import {
-  createGame as createGameService,
-  addPlayerTwoAndCreateGame as addPlayerTwoAndCreateGameService,
+  addPlayerOne as addPlayerOneService,
+  addPlayerTwo as addPlayerTwoService,
+  startGame as startGameService,
   getCurrentGameState as getCurrentGameStateService,
   updateGameState as updateGameStateService,
+  createRematch as createRematchService,
 } from "../services/gameService";
 
-export const createGame: RequestHandler = async (req, res) => {
+export const addPlayerOne: RequestHandler = async (req, res) => {
   const { gameId, playerOne } = req.body;
 
   try {
-    const game = await createGameService(gameId, playerOne);
+    const game = await addPlayerOneService(gameId, playerOne);
     res.status(201).json(game);
   } catch (error) {
     res.status(500).json({ message: "Error creating game", error });
   }
 };
 
-export const addPlayerTwoAndCreateGame: RequestHandler = async (req, res) => {
+export const addPlayerTwo: RequestHandler = async (req, res) => {
   const { gameId, playerTwo } = req.body;
 
   try {
-    const updatedGame = await addPlayerTwoAndCreateGameService(
-      gameId,
-      playerTwo
-    );
-    res.status(200).json(updatedGame);
+    const game = await addPlayerTwoService(gameId, playerTwo);
+    res.status(201).json(game);
   } catch (error) {
-    res.status(500).json({ message: "Error updating Player Two", error });
+    res.status(500).json({ message: "Error adding player two", error });
+  }
+};
+
+export const startGame: RequestHandler = async (req, res) => {
+  const { gameId } = req.body;
+
+  try {
+    const game = await startGameService(gameId);
+    res.status(201).json(game);
+  } catch (error) {
+    res.status(500).json({ message: "Error starting game", error });
+  }
+};
+
+export const createRematch: RequestHandler = async (req, res) => {
+  const { gameId } = req.body;
+
+  try {
+    const game = await createRematchService(gameId);
+    res.status(201).json(game);
+  } catch (error) {
+    res.status(500).json({ message: "Error creating new game", error });
   }
 };
 

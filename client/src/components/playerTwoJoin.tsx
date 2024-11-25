@@ -5,6 +5,7 @@ import { setPlayerTwoName, setPlayerTwoId } from "../features/player/playerSlice
 import { RootState, AppDispatch } from "../store";
 import getSocketInstance from "../socket";
 import { useParams } from "react-router-dom";
+import { setGameId } from "../features/game/gameSlice";
 import { v4 as uuidv4 } from "uuid";
 
 const PlayerTwoJoin: React.FC = () => {
@@ -12,52 +13,54 @@ const PlayerTwoJoin: React.FC = () => {
   const socket = socketRef.current;
   const { gameId } = useParams<{ gameId: string }>();
 
-  const { playerTwoName, loggedInUser } = useSelector((state: RootState) => state.player);
-
+  const { loggedInUser, playerTwoName, isPlayerOne } = useSelector((state: RootState) => state.player);
   const dispatch = useDispatch<AppDispatch>();
 
   useEffect(() => {
-    if (!playerTwoName) {
-      dispatch(setPlayerTwoName("anonymous"));
+    if (gameId) {
+      dispatch(setGameId(gameId));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [gameId]);
+
+  useEffect(() => {
+    if (gameId) {
+      let id = localStorage.getItem("playerId");
+      if (!id && !loggedInUser) {
+        id = uuidv4().slice(0, 8);
+        localStorage.setItem("playerId", id);
+      }
+
+      const playerName = loggedInUser?.username || "anonymous";
+      const userId = loggedInUser?._id || id;
+
+      dispatch(setPlayerTwoName(playerName));
+      dispatch(setPlayerTwoId(userId || null));
+
+      if (!isPlayerOne) {
+        socket.emit("joinGame", gameId, userId, playerTwoName);
+      }
+
+      return () => {
+        socket.off("joinGame");
+      };
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameId]);
 
   useEffect(() => {
     if (loggedInUser) {
-      localStorage.setItem("playerTwoId", loggedInUser._id);
+      localStorage.setItem("playerId", loggedInUser._id);
       dispatch(setPlayerTwoId(loggedInUser._id || null));
       dispatch(setPlayerTwoName(loggedInUser.username));
-    } else {
-      localStorage.removeItem("playerTwoId");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loggedInUser]);
 
   const handleStartGame = (e: { preventDefault: () => void }) => {
     e.preventDefault();
-
-    let id = localStorage.getItem("playerTwoId");
-
-    if (!id && !loggedInUser) {
-      id = uuidv4();
-      localStorage.setItem("playerTwoId", id);
-    }
-
-    if (loggedInUser && loggedInUser !== null) {
-      const playerName = loggedInUser.username;
-      const playerId = loggedInUser._id;
-
-      dispatch(setPlayerTwoName(playerName));
-      dispatch(setPlayerTwoId(playerId || null));
-      socket.emit("playerTwoInfo", { gameId, playerTwoName: playerName, playerTwoId: playerId });
-    } else if (playerTwoName) {
-      const playerName = playerTwoName;
-      const playerId = id;
-
-      dispatch(setPlayerTwoId(playerId));
-      socket.emit("playerTwoInfo", { gameId, playerTwoName: playerName, playerTwoId: playerId });
-    }
+    socket.emit("startGame", gameId);
+    // dispatch(setGameStarted(true));
   };
 
   return (

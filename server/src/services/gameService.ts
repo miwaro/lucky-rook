@@ -1,6 +1,7 @@
 import { Game } from "../models/game";
+import { v4 as uuidv4 } from "uuid";
 
-export const createGame = async (
+export const addPlayerOne = async (
   gameId: string,
   playerOne: { userId: string; name: string; color: string }
 ) => {
@@ -8,7 +9,6 @@ export const createGame = async (
     gameId,
     playerOne,
     gameStarted: false,
-    gameIds: [],
   });
 
   try {
@@ -19,7 +19,7 @@ export const createGame = async (
   }
 };
 
-export const addPlayerTwoAndCreateGame = async (
+export const addPlayerTwo = async (
   gameId: string,
   playerTwo: { userId: string; name: string; color: string }
 ) => {
@@ -30,17 +30,31 @@ export const addPlayerTwoAndCreateGame = async (
       throw new Error("Game not found");
     }
 
-    console.log("Before updating playerTwo:", game);
     game.playerTwo = playerTwo;
-    game.markModified("playerTwo"); // Explicitly mark playerTwo as modified
-    console.log("After updating playerTwo:", game);
+    game.markModified("playerTwo");
+
+    const savedGame = await game.save();
+
+    return savedGame;
+  } catch (error) {
+    console.error("Error updating Player Two:", error);
+    throw error;
+  }
+};
+
+export const startGame = async (gameId: string) => {
+  try {
+    const game = await Game.findOne({ gameId });
+
+    if (!game) {
+      throw new Error("Game not found");
+    }
 
     game.gameStarted = true;
     game.fen = "start";
     game.currentTurn = "white";
 
     const savedGame = await game.save();
-    console.log("Saved game:", savedGame); // Check the saved document
 
     return savedGame;
   } catch (error) {
@@ -77,6 +91,31 @@ export const updateGameState = async (
     return updatedGame;
   } catch (error) {
     console.error("Error updating game state:", error);
+    throw error;
+  }
+};
+
+export const createRematch = async (gameId: string) => {
+  const newGameId = uuidv4();
+  try {
+    const game = await Game.findOne({ gameId });
+
+    if (!game) {
+      throw new Error("Game not found");
+    }
+
+    const newGame = new Game({
+      gameId: newGameId,
+      playerOne: game.playerOne,
+      playerTwo: game.playerTwo,
+      gameStarted: true,
+      fen: "start",
+      currentTurn: "white",
+    });
+
+    return await newGame.save();
+  } catch (error) {
+    console.error("Error creating new game:", error);
     throw error;
   }
 };
