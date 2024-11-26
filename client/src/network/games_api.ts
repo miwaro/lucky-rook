@@ -2,7 +2,7 @@ import { Game } from "../models/game";
 
 export async function getCurrentGameState(gameId: string): Promise<Game> {
   try {
-    const response = await fetch(`/api/game/${gameId}/current-game`, { method: "GET" });
+    const response = await fetch(`/api/games/${gameId}/current-game`, { method: "GET" });
     if (!response.ok) {
       throw new Error(`Failed to fetch game state: ${response.statusText}`);
     }

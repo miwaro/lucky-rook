@@ -13,7 +13,7 @@ const PlayerTwoJoin: React.FC = () => {
   const socket = socketRef.current;
   const { gameId } = useParams<{ gameId: string }>();
 
-  const { loggedInUser, playerTwoName, isPlayerOne } = useSelector((state: RootState) => state.player);
+  const { loggedInUser, playerTwoName, playerTwoId, isPlayerOne } = useSelector((state: RootState) => state.player);
   const dispatch = useDispatch<AppDispatch>();
 
   useEffect(() => {
@@ -38,29 +38,27 @@ const PlayerTwoJoin: React.FC = () => {
       dispatch(setPlayerTwoId(userId || null));
 
       if (!isPlayerOne) {
-        socket.emit("joinGame", gameId, userId, playerTwoName);
+        socket.emit("joinGame", gameId, userId, playerName);
       }
 
       return () => {
         socket.off("joinGame");
       };
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameId]);
+  }, [dispatch, gameId, isPlayerOne, loggedInUser, playerTwoName, socket]);
 
   useEffect(() => {
     if (loggedInUser) {
       localStorage.setItem("playerId", loggedInUser._id);
       dispatch(setPlayerTwoId(loggedInUser._id || null));
-      dispatch(setPlayerTwoName(loggedInUser.username));
+      dispatch(setPlayerTwoName(loggedInUser.username || "anonymous"));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loggedInUser]);
 
   const handleStartGame = (e: { preventDefault: () => void }) => {
     e.preventDefault();
-    socket.emit("startGame", gameId);
-    // dispatch(setGameStarted(true));
+    socket.emit("startGame", gameId, playerTwoName, playerTwoId);
   };
 
   return (

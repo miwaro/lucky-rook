@@ -1,18 +1,24 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { useParams } from "react-router-dom";
 import { RootState, AppDispatch } from "../store";
 import LinkShare from "../components/linkShare";
 import PlayerTwoJoin from "../components/playerTwoJoin";
 import getSocketInstance from "../socket";
-import { setBoardOrientation, setGameStarted } from "../features/game/gameSlice";
+import { setBoardOrientation, setCurrentTurn, setFen, setGameStarted } from "../features/game/gameSlice";
 import {
   setReceivedPlayerTwoName,
   setReceivedPlayerOneName,
   setIsPlayerTwo,
   setPlayerOneId,
   setPlayerTwoId,
+  setPlayerTwoName,
+  setPlayerOneName,
+  setIsPlayerOne,
 } from "../features/player/playerSlice";
+import { getCurrentGameState } from "../network/games_api";
+import { Chessboard } from "react-chessboard";
+import PlayerNames from "./playerNames";
 
 const Room: React.FC = () => {
   const socketRef = useRef(getSocketInstance());
@@ -21,21 +27,59 @@ const Room: React.FC = () => {
   const { gameId } = useParams<{ gameId: string }>();
   const dispatch = useDispatch<AppDispatch>();
   const { loggedInUser, isPlayerTwo, isPlayerOne, playerOneId } = useSelector((state: RootState) => state.player);
+  const [loading, setLoading] = useState(true);
 
-  // Setup socket listeners
+  useEffect(() => {
+    if (gameId) {
+      const fetchGameState = async () => {
+        try {
+          const gameState = await getCurrentGameState(gameId);
+          const playerId = localStorage.getItem("playerId");
+
+          if (playerId === gameState.playerOne.userId) {
+            dispatch(setIsPlayerOne(true));
+            dispatch(setIsPlayerTwo(false));
+            socket.emit("joinGame", gameId, playerId, gameState.playerOne.name);
+          } else if (playerId === gameState.playerTwo.userId) {
+            dispatch(setIsPlayerOne(false));
+            dispatch(setIsPlayerTwo(true));
+            socket.emit("joinGame", gameId, playerId, gameState.playerTwo.name);
+          } else {
+            dispatch(setIsPlayerOne(false));
+            dispatch(setIsPlayerTwo(false));
+          }
+
+          dispatch(setPlayerOneName(gameState.playerOne.name));
+          dispatch(setPlayerOneId(gameState.playerOne.userId));
+
+          dispatch(setPlayerTwoName(gameState.playerTwo.name));
+          dispatch(setPlayerTwoId(gameState.playerTwo.userId));
+          dispatch(setCurrentTurn(gameState.currentTurn));
+          dispatch(setGameStarted(gameState.gameStarted));
+
+          dispatch(setFen(gameState.fen));
+        } catch (error) {
+          console.error("Error fetching game state:", error);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      fetchGameState();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameId, socket]);
+
   useEffect(() => {
     if (!gameId) return;
 
-    socket.on(
-      "playerTwoJoined",
-      ({ playerTwoName, playerTwoUserId }: { playerTwoName: string; playerTwoUserId: string }) => {
-        dispatch(setGameStarted(true));
-        dispatch(setReceivedPlayerTwoName(playerTwoName));
-        dispatch(setPlayerTwoId(playerTwoUserId));
-      }
-    );
+    socket.on("playerTwoJoined", ({ playerTwoName, playerTwoId }: { playerTwoName: string; playerTwoId: string }) => {
+      dispatch(setGameStarted(true));
+      dispatch(setReceivedPlayerTwoName(playerTwoName));
+      dispatch(setPlayerTwoName(playerTwoName));
+      dispatch(setPlayerTwoId(playerTwoId));
+    });
 
-    // Set board orientation based on player color
     socket.on("playerColor", (color: "white" | "black") => {
       dispatch(setBoardOrientation(color));
     });
@@ -43,8 +87,8 @@ const Room: React.FC = () => {
     socket.on(
       "receivePlayerOneInfo",
       ({ playerOneName, playerOneUserId }: { playerOneName: string; playerOneUserId: string }) => {
-        console.log("id", playerOneUserId);
         dispatch(setReceivedPlayerOneName(playerOneName));
+        dispatch(setPlayerOneName(playerOneName));
         dispatch(setPlayerOneId(playerOneUserId));
       }
     );
@@ -70,6 +114,28 @@ const Room: React.FC = () => {
       socket.emit("joinGame", gameId, userId, playerName);
     }
   }, [gameId, isPlayerOne, loggedInUser, playerOneId, socket]);
+
+  if (loading) {
+    return (
+      <div className="flex">
+        <div className="border-2 border-stone-950 p-4 bg-stone-800 rounded-lg">
+          <Chessboard
+            boardWidth={500}
+            customNotationStyle={{
+              color: "#000",
+              fontWeight: "bold",
+              fontSize: "15px",
+            }}
+            customBoardStyle={{
+              borderRadius: "6px",
+              boxShadow: "0 2px 10px rgba(0, 0, 0, 0.5)",
+            }}
+          />
+        </div>
+        <PlayerNames />
+      </div>
+    );
+  }
 
   return (
     <div className="room-setup">

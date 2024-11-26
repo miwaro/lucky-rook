@@ -23,6 +23,11 @@ export const addPlayerTwo = async (
   gameId: string,
   playerTwo: { userId: string; name: string; color: string }
 ) => {
+  if (!playerTwo.userId || !playerTwo.name) {
+    console.error("Invalid Player Two data:", playerTwo);
+    throw new Error("PlayerTwo object is invalid");
+  }
+
   try {
     const game = await Game.findOne({ gameId });
 
@@ -30,8 +35,7 @@ export const addPlayerTwo = async (
       throw new Error("Game not found");
     }
 
-    game.playerTwo = playerTwo;
-    game.markModified("playerTwo");
+    game.set("playerTwo", playerTwo);
 
     const savedGame = await game.save();
 

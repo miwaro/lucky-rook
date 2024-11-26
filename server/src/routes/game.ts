@@ -5,16 +5,18 @@ import {
   getCurrentGameState,
   updateGameState,
   createRematch,
+  startGame,
 } from "../controllers/game";
 
 const router = express.Router();
 
-router.post("/game", addPlayerOne);
-router.post("/game/:gameId/start-game", addPlayerTwo);
-router.post("/game", createRematch);
+router.post("/games/add-player-one", addPlayerOne);
+router.post("/games/:gameId/add-player-two", addPlayerTwo);
+router.post("/games/:gameId/start-game", startGame);
+router.post("/games/:gameId/rematch", createRematch);
 
-router.get("/game/:gameId/current-game", getCurrentGameState);
-
+// Only These two routes are being accessed from the client
+router.get("/games/:gameId/current-game", getCurrentGameState);
 router.put("/games/:gameId", updateGameState);
 
 export default router;

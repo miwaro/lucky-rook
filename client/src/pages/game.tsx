@@ -6,16 +6,8 @@ import { useSelector, useDispatch } from "react-redux";
 import { RootState, AppDispatch } from "../store";
 import getSocketInstance from "../socket";
 import { useParams } from "react-router-dom";
-import { getCurrentGameState, updateGameState } from "../network/games_api";
-import { setGameStarted, setCurrentTurn, setFen, setBoardOrientation, setResult } from "../features/game/gameSlice";
-import {
-  setIsPlayerOne,
-  setPlayerOneId,
-  setPlayerOneName,
-  setPlayerTwoId,
-  setIsPlayerTwo,
-  setPlayerTwoName,
-} from "../features/player/playerSlice";
+import { updateGameState } from "../network/games_api";
+import { setCurrentTurn, setFen, setBoardOrientation, setResult } from "../features/game/gameSlice";
 import Room from "../components/room";
 
 interface MoveData {
@@ -34,8 +26,9 @@ const Game: React.FC = () => {
 
   useEffect(() => {
     socket.on("rematchStatus", ({ rematchRequestedByPlayerOne, rematchRequestedByPlayerTwo }) => {
-      if (rematchRequestedByPlayerOne && rematchRequestedByPlayerTwo) {
-        // start a new game
+      if (rematchRequestedByPlayerOne && rematchRequestedByPlayerTwo && isGameOver) {
+        game.load("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+        dispatch(setFen(game.fen()));
       } else {
         if (isPlayerOne && rematchRequestedByPlayerOne) {
           // setRematchMessage('Waiting for Player Two to accept the rematch...');
@@ -46,7 +39,8 @@ const Game: React.FC = () => {
         }
       }
     });
-  }, [isPlayerOne, socket]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPlayerOne, socket, isGameOver]);
 
   useEffect(() => {
     socket.on("playerColor", (color: "white" | "black") => {
@@ -56,6 +50,7 @@ const Game: React.FC = () => {
 
   useEffect(() => {
     const piecePlacement = fen.split(" ")[0];
+    if (piecePlacement === "start") return;
     const hasWhiteKing = piecePlacement.includes("K");
     const hasBlackKing = piecePlacement.includes("k");
 
@@ -70,43 +65,6 @@ const Game: React.FC = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fen]);
-
-  useEffect(() => {
-    if (gameId && gameStarted) {
-      const fetchGameState = async () => {
-        try {
-          const gameState = await getCurrentGameState(gameId);
-          const playerId = localStorage.getItem("playerId");
-
-          if (playerId === gameState.playerOne.userId) {
-            dispatch(setIsPlayerOne(true));
-            dispatch(setIsPlayerTwo(false));
-            socket.emit("joinGame", gameId, playerId, gameState.playerOne.name);
-          } else if (playerId === gameState.playerTwo.userId) {
-            dispatch(setIsPlayerOne(false));
-            dispatch(setIsPlayerTwo(true));
-            socket.emit("joinGame", gameId, playerId, gameState.playerTwo.name);
-          } else {
-            dispatch(setIsPlayerOne(false));
-            dispatch(setIsPlayerTwo(false));
-          }
-
-          dispatch(setPlayerOneName(gameState.playerOne.name));
-          dispatch(setPlayerOneId(gameState.playerOne.userId));
-          dispatch(setPlayerTwoName(gameState.playerTwo.name));
-          dispatch(setPlayerTwoId(gameState.playerTwo.userId));
-          dispatch(setFen(gameState.fen));
-          dispatch(setCurrentTurn(gameState.currentTurn));
-          dispatch(setGameStarted(gameState.gameStarted));
-          game.load(gameState.fen);
-        } catch (error) {
-          console.error("Error fetching game state:", error);
-        }
-      };
-
-      fetchGameState();
-    }
-  }, [gameId, dispatch, game, socket]);
 
   useEffect(() => {
     socket.on("move", ({ sourceSquare, targetSquare }: MoveData) => {
@@ -165,6 +123,7 @@ const Game: React.FC = () => {
               boardOrientation={boardOrientation}
               boardWidth={500}
               onPieceDrop={onDrop}
+              // eslint-disable-next-line no-constant-binary-expression
               arePiecesDraggable={result === null ? true : false || isGameOver}
               customNotationStyle={{
                 color: "#000",

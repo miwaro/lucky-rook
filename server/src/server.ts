@@ -75,14 +75,6 @@ io.on("connection", (socket) => {
 
         await socket.join(gameId);
         socket.emit("playerColor", playerData.color);
-
-        const game = games[gameId];
-        if (game) {
-          socket.emit("gameState", {
-            fen: game.fen,
-            currentTurn: game.currentTurn,
-          });
-        }
       } else {
         const game = io.sockets.adapter.rooms.get(gameId);
 
@@ -101,12 +93,6 @@ io.on("connection", (socket) => {
           };
         } else if (game && game.size === 2) {
           socket.emit("playerColor", "black");
-          games[gameId].players[userId] = {
-            socketId: socket.id,
-            color: "black",
-            name: playerName,
-          };
-
           const playerOneUserId = Object.keys(games[gameId].players).find(
             (id) => games[gameId].players[id].color === "white"
           );
@@ -118,13 +104,6 @@ io.on("connection", (socket) => {
               playerOneUserId,
             });
           }
-          const playerTwo = {
-            userId,
-            name: playerName,
-            color: "black",
-          };
-
-          await addPlayerTwoService(gameId, playerTwo);
         }
       }
     } catch (error) {
@@ -134,18 +113,25 @@ io.on("connection", (socket) => {
   });
 
   socket.on("startGame", async (gameId, playerTwoName, playerTwoId) => {
-    await startGameService(gameId);
-    const playerTwoUserId = Object.keys(games[gameId].players).find(
-      (id) => games[gameId].players[id].color === "black"
-    );
-
-    if (playerTwoUserId) {
-      const playerTwoName = games[gameId].players[playerTwoUserId].name;
+    if (playerTwoId) {
+      games[gameId].players[playerTwoId] = {
+        socketId: socket.id,
+        color: "black",
+        name: playerTwoName,
+      };
       io.to(gameId).emit("playerTwoJoined", {
         playerTwoName,
-        playerTwoUserId,
+        playerTwoId,
       });
+      const playerTwo = {
+        userId: playerTwoId,
+        name: playerTwoName,
+        color: "black",
+      };
+
+      await addPlayerTwoService(gameId, playerTwo);
     }
+    await startGameService(gameId);
   });
 
   socket.on("move", (data) => {
