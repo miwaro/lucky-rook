@@ -19,7 +19,7 @@ const LinkShare: React.FC = () => {
   useEffect(() => {
     if (loggedInUser) {
       localStorage.setItem("playerId", loggedInUser._id);
-      dispatch(setPlayerOneId(loggedInUser._id || null));
+      dispatch(setPlayerOneId(loggedInUser._id));
       dispatch(setPlayerOneName(loggedInUser.username));
     }
   }, [loggedInUser, dispatch]);

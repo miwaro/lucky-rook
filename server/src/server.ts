@@ -72,9 +72,7 @@ io.on("connection", (socket) => {
       if (games[gameId]?.players[userId]) {
         const playerData = games[gameId].players[userId];
         playerData.socketId = socket.id;
-
-        await socket.join(gameId);
-        socket.emit("playerColor", playerData.color);
+        return await socket.join(gameId);
       } else {
         const game = io.sockets.adapter.rooms.get(gameId);
 

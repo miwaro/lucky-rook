@@ -27,6 +27,7 @@ const Room: React.FC = () => {
   const { gameId } = useParams<{ gameId: string }>();
   const dispatch = useDispatch<AppDispatch>();
   const { loggedInUser, isPlayerTwo, isPlayerOne, playerOneId } = useSelector((state: RootState) => state.player);
+  const { gameStarted } = useSelector((state: RootState) => state.game);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -37,26 +38,24 @@ const Room: React.FC = () => {
           const playerId = localStorage.getItem("playerId");
 
           if (playerId === gameState.playerOne.userId) {
+            dispatch(setPlayerOneName(gameState.playerOne.name));
+            dispatch(setPlayerOneId(gameState.playerOne.userId));
             dispatch(setIsPlayerOne(true));
             dispatch(setIsPlayerTwo(false));
+            dispatch(setBoardOrientation("white"));
             socket.emit("joinGame", gameId, playerId, gameState.playerOne.name);
           } else if (playerId === gameState.playerTwo.userId) {
             dispatch(setIsPlayerOne(false));
             dispatch(setIsPlayerTwo(true));
+            dispatch(setPlayerTwoName(gameState.playerTwo.name));
+            dispatch(setPlayerTwoId(gameState.playerTwo.userId));
+            dispatch(setBoardOrientation("black"));
+
             socket.emit("joinGame", gameId, playerId, gameState.playerTwo.name);
-          } else {
-            dispatch(setIsPlayerOne(false));
-            dispatch(setIsPlayerTwo(false));
           }
 
-          dispatch(setPlayerOneName(gameState.playerOne.name));
-          dispatch(setPlayerOneId(gameState.playerOne.userId));
-
-          dispatch(setPlayerTwoName(gameState.playerTwo.name));
-          dispatch(setPlayerTwoId(gameState.playerTwo.userId));
           dispatch(setCurrentTurn(gameState.currentTurn));
           dispatch(setGameStarted(gameState.gameStarted));
-
           dispatch(setFen(gameState.fen));
         } catch (error) {
           console.error("Error fetching game state:", error);
@@ -77,6 +76,9 @@ const Room: React.FC = () => {
       dispatch(setGameStarted(true));
       dispatch(setReceivedPlayerTwoName(playerTwoName));
       dispatch(setPlayerTwoName(playerTwoName));
+      if (isPlayerTwo) {
+        localStorage.setItem("playerId", playerTwoId);
+      }
       dispatch(setPlayerTwoId(playerTwoId));
     });
 
@@ -98,7 +100,7 @@ const Room: React.FC = () => {
       socket.off("playerColor");
       socket.off("receivePlayerOneInfo");
     };
-  }, [gameId, socket, dispatch]);
+  }, [gameId, socket, dispatch, isPlayerTwo]);
 
   useEffect(() => {
     if (gameId && !isPlayerOne) {
@@ -115,7 +117,7 @@ const Room: React.FC = () => {
     }
   }, [gameId, isPlayerOne, loggedInUser, playerOneId, socket]);
 
-  if (loading) {
+  if (loading && gameStarted) {
     return (
       <div className="flex">
         <div className="border-2 border-stone-950 p-4 bg-stone-800 rounded-lg">
@@ -135,6 +137,10 @@ const Room: React.FC = () => {
         <PlayerNames />
       </div>
     );
+  }
+
+  if (loading) {
+    return <div>Loading</div>;
   }
 
   return (

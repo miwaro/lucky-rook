@@ -6,7 +6,6 @@ import { RootState, AppDispatch } from "../store";
 import getSocketInstance from "../socket";
 import { useParams } from "react-router-dom";
 import { setGameId } from "../features/game/gameSlice";
-import { v4 as uuidv4 } from "uuid";
 
 const PlayerTwoJoin: React.FC = () => {
   const socketRef = useRef(getSocketInstance());
@@ -25,17 +24,20 @@ const PlayerTwoJoin: React.FC = () => {
 
   useEffect(() => {
     if (gameId) {
-      let id = localStorage.getItem("playerId");
-      if (!id && !loggedInUser) {
-        id = uuidv4().slice(0, 8);
-        localStorage.setItem("playerId", id);
+      const playerName = loggedInUser?.username || "anonymous";
+      dispatch(setPlayerTwoName(playerName));
+
+      const userId = localStorage.getItem("playerId");
+      if (!userId && !loggedInUser) {
+        localStorage.setItem("playerId", playerTwoId);
       }
 
-      const playerName = loggedInUser?.username || "anonymous";
-      const userId = loggedInUser?._id || id;
+      if (loggedInUser) {
+        const { _id } = loggedInUser;
+        dispatch(setPlayerTwoId(_id));
+      }
 
-      dispatch(setPlayerTwoName(playerName));
-      dispatch(setPlayerTwoId(userId || null));
+      dispatch(setPlayerTwoId(playerTwoId));
 
       if (!isPlayerOne) {
         socket.emit("joinGame", gameId, userId, playerName);
@@ -45,12 +47,13 @@ const PlayerTwoJoin: React.FC = () => {
         socket.off("joinGame");
       };
     }
-  }, [dispatch, gameId, isPlayerOne, loggedInUser, playerTwoName, socket]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (loggedInUser) {
       localStorage.setItem("playerId", loggedInUser._id);
-      dispatch(setPlayerTwoId(loggedInUser._id || null));
+      dispatch(setPlayerTwoId(loggedInUser._id));
       dispatch(setPlayerTwoName(loggedInUser.username || "anonymous"));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

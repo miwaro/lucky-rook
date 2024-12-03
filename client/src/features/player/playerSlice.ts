@@ -1,11 +1,12 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { User } from "../../models/user";
+import { v4 as uuidv4 } from "uuid";
 
 interface PlayerState {
   playerOneName: string;
-  playerOneId: string | null;
+  playerOneId: string;
   playerTwoName: string;
-  playerTwoId: string | null;
+  playerTwoId: string;
   isPlayerOne: boolean;
   isPlayerTwo: boolean;
   receivedPlayerOneName: string | null;
@@ -15,9 +16,9 @@ interface PlayerState {
 
 const initialState: PlayerState = {
   playerOneName: "anonymous",
-  playerOneId: null,
+  playerOneId: uuidv4(),
   playerTwoName: "anonymous",
-  playerTwoId: null,
+  playerTwoId: uuidv4(),
   isPlayerOne: false,
   isPlayerTwo: false,
   receivedPlayerOneName: null,
@@ -32,13 +33,13 @@ const playerSlice = createSlice({
     setPlayerOneName: (state, action: PayloadAction<string>) => {
       state.playerOneName = action.payload;
     },
-    setPlayerOneId: (state, action: PayloadAction<string | null>) => {
+    setPlayerOneId: (state, action: PayloadAction<string>) => {
       state.playerOneId = action.payload;
     },
     setPlayerTwoName: (state, action: PayloadAction<string>) => {
       state.playerTwoName = action.payload;
     },
-    setPlayerTwoId: (state, action: PayloadAction<string | null>) => {
+    setPlayerTwoId: (state, action: PayloadAction<string>) => {
       state.playerTwoId = action.payload;
     },
     setIsPlayerOne: (state, action: PayloadAction<boolean>) => {

@@ -16,7 +16,7 @@ const Lobby: React.FC = () => {
   const navigate = useNavigate();
 
   const dispatch = useDispatch<AppDispatch>();
-  const { playerOneName, loggedInUser } = useSelector((state: RootState) => state.player);
+  const { playerOneName, playerOneId, loggedInUser } = useSelector((state: RootState) => state.player);
 
   useEffect(() => {
     if (!playerOneName) {
@@ -28,7 +28,7 @@ const Lobby: React.FC = () => {
     if (loggedInUser) {
       const { username, _id } = loggedInUser;
       localStorage.setItem("playerId", _id);
-      dispatch(setPlayerOneId(_id || null));
+      dispatch(setPlayerOneId(_id));
       dispatch(setPlayerOneName(username));
     } else {
       localStorage.removeItem("playerId");
@@ -52,23 +52,22 @@ const Lobby: React.FC = () => {
   const createGame = (e: React.FormEvent) => {
     e.preventDefault();
 
-    let id = localStorage.getItem("playerId");
+    const playerId = localStorage.getItem("playerId");
     const gameId = uuidv4().slice(0, 8);
 
-    if (!id && !loggedInUser) {
-      id = uuidv4().slice(0, 8);
-      localStorage.setItem("playerId", id);
+    if (!playerId && !loggedInUser) {
+      localStorage.setItem("playerId", playerOneId);
     }
 
     if (loggedInUser) {
       const { username, _id } = loggedInUser;
       dispatch(setPlayerOneName(username));
-      dispatch(setPlayerOneId(_id || null));
+      dispatch(setPlayerOneId(_id));
       dispatch(setIsPlayerOne(true));
       socket.emit("createGame", username, _id, gameId);
     } else if (playerOneName) {
       const playerName = playerOneName;
-      const playerId = id;
+      const playerId = playerOneId;
       dispatch(setIsPlayerOne(true));
       dispatch(setPlayerOneId(playerId));
       socket.emit("createGame", playerName, playerId, gameId);

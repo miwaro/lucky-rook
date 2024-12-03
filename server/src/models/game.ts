@@ -32,12 +32,12 @@ const GameSchema: Schema = new Schema(
     gameId: { type: String, required: true, unique: true },
     playerOne: {
       userId: { type: String, required: true },
-      name: { type: String, required: true },
+      name: { type: String, required: true, default: "anonymous" },
       color: { type: String, enum: ["white", "black"], required: true },
     },
     playerTwo: {
       userId: { type: String },
-      name: { type: String },
+      name: { type: String, default: "anonymous" },
       color: { type: String, enum: ["white", "black"] },
     },
     gameStarted: { type: Boolean, default: false },
