@@ -64,10 +64,15 @@ export const getCurrentGameState: RequestHandler = async (req, res) => {
 
 export const updateGameState: RequestHandler = async (req, res) => {
   const { gameId } = req.params;
-  const { fen, currentTurn } = req.body;
+  const { fen, currentTurn, moves } = req.body;
 
   try {
-    const updatedGame = await updateGameStateService(gameId, fen, currentTurn);
+    const updatedGame = await updateGameStateService(
+      gameId,
+      fen,
+      currentTurn,
+      moves
+    );
     if (!updatedGame) {
       res.status(404).json({ message: "Game not found" });
       return;

@@ -8,28 +8,16 @@ import {
   addPlayerTwo as addPlayerTwoService,
   startGame as startGameService,
   createRematch as createRematchService,
+  getCurrentGameState,
+  updateGameState,
 } from "./services/gameService";
+import { InMemoryGameState } from "./models/gameInterface";
 
 const port = env.PORT;
 const server = http.createServer(app);
 const io = new Server(server);
 
-interface GameState {
-  currentTurn: "white" | "black";
-  fen: string;
-  players: {
-    [userId: string]: {
-      socketId: string | null;
-      color: "white" | "black";
-      name: string;
-    };
-  };
-  rematchRequestedByPlayerOne: boolean;
-  rematchRequestedByPlayerTwo: boolean;
-  winner: string | null;
-}
-
-const games: { [gameId: string]: GameState } = {};
+const games: { [key: string]: InMemoryGameState } = {};
 
 io.on("connection", (socket) => {
   socket.on("createGame", async (playerOneName, userId, gameId) => {
@@ -45,15 +33,23 @@ io.on("connection", (socket) => {
       socket.data.userId = userId;
 
       games[gameId] = {
-        currentTurn: "white",
+        gameId,
         fen: "start",
-        players: {
-          [userId]: {
-            socketId: socket.id,
-            color: "white",
-            name: playerOneName,
-          },
+        gameStarted: false,
+        playerOne: {
+          userId,
+          name: playerOneName,
+          color: "white",
         },
+        playerTwo: null,
+        moves: [],
+        currentTurn: "white",
+        status: "in_progress",
+        result: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        playerOneSocketId: socket.id,
+        playerTwoSocketId: null,
         rematchRequestedByPlayerOne: false,
         rematchRequestedByPlayerTwo: false,
         winner: null,
@@ -68,41 +64,110 @@ io.on("connection", (socket) => {
 
   socket.on("joinGame", async (gameId, userId, playerName) => {
     try {
+      let game = games[gameId];
+      if (!game) {
+        const dbGame = await getCurrentGameState(gameId);
+        if (!dbGame) {
+          return socket.emit("error", "Game not found.");
+        }
+
+        // Initialize in-memory state from the retrieved game
+        games[gameId] = {
+          gameId: dbGame.gameId,
+          fen: dbGame.fen,
+          gameStarted: dbGame.gameStarted,
+          playerOne: {
+            userId: dbGame.playerOne?.userId || "",
+            name: dbGame.playerOne?.name || "anonymous",
+            color: dbGame.playerOne?.color || "white",
+          },
+          playerTwo: dbGame.playerTwo
+            ? {
+                userId: dbGame.playerTwo.userId || "",
+                name: dbGame.playerTwo.name || "anonymous",
+                color: dbGame.playerTwo.color || "black",
+              }
+            : null,
+          moves: dbGame.moves,
+          currentTurn: dbGame.currentTurn || "white",
+          status: dbGame.status,
+          result: dbGame.result || null,
+          createdAt: dbGame.createdAt,
+          updatedAt: dbGame.updatedAt,
+          playerOneSocketId: null,
+          playerTwoSocketId: null,
+          rematchRequestedByPlayerOne: false,
+          rematchRequestedByPlayerTwo: false,
+          winner: null,
+        };
+      }
       // Check if player is reconnecting
-      if (games[gameId]?.players[userId]) {
-        const playerData = games[gameId].players[userId];
-        playerData.socketId = socket.id;
-        return await socket.join(gameId);
+      if (game.playerOne?.userId === userId) {
+        game.playerOneSocketId = socket.id;
+        socket.join(gameId);
+        if (game.playerOneSocketId) {
+          socket.emit("loadGameState", {
+            gameId: games[gameId].gameId,
+            fen: games[gameId].fen,
+            gameStarted: games[gameId].gameStarted,
+            playerOne: games[gameId].playerOne,
+            playerTwo: games[gameId].playerTwo,
+            moves: games[gameId].moves,
+            currentTurn: games[gameId].currentTurn,
+            status: games[gameId].status,
+            result: games[gameId].result,
+            rematchRequestedByPlayerOne:
+              games[gameId].rematchRequestedByPlayerOne,
+            rematchRequestedByPlayerTwo:
+              games[gameId].rematchRequestedByPlayerTwo,
+            winner: games[gameId].winner,
+          });
+        }
+        return;
+      } else if (game.playerTwo?.userId === userId) {
+        game.playerTwoSocketId = socket.id;
+        socket.join(gameId);
+        if (game.playerTwoSocketId) {
+          socket.emit("loadGameState", {
+            gameId: games[gameId].gameId,
+            fen: games[gameId].fen,
+            gameStarted: games[gameId].gameStarted,
+            playerOne: games[gameId].playerOne,
+            playerTwo: games[gameId].playerTwo,
+            moves: games[gameId].moves,
+            currentTurn: games[gameId].currentTurn,
+            status: games[gameId].status,
+            result: games[gameId].result,
+            rematchRequestedByPlayerOne:
+              games[gameId].rematchRequestedByPlayerOne,
+            rematchRequestedByPlayerTwo:
+              games[gameId].rematchRequestedByPlayerTwo,
+            winner: games[gameId].winner,
+          });
+        }
+        return;
+      }
+      if (!game.playerTwo) {
+        game.playerTwo = {
+          userId,
+          name: playerName || "anonymous",
+          color: "black",
+        };
+        game.playerTwoSocketId = socket.id;
+
+        await addPlayerTwoService(gameId, game.playerTwo);
+
+        socket.join(gameId);
+
+        socket.emit("playerColor", "black");
+        const playerOneName = game.playerOne?.name || "anonymous";
+        const playerOneUserId = game.playerOne?.userId || "";
+        socket.emit("receivePlayerOneInfo", {
+          playerOneName,
+          playerOneUserId,
+        });
       } else {
-        const game = io.sockets.adapter.rooms.get(gameId);
-
-        if (game && game.size >= 2) {
-          return socket.emit("error", "Game is full. Please try another game.");
-        }
-
-        await socket.join(gameId);
-
-        if (game && game.size === 1) {
-          socket.emit("playerColor", "white");
-          games[gameId].players[userId] = {
-            socketId: socket.id,
-            color: "white",
-            name: playerName,
-          };
-        } else if (game && game.size === 2) {
-          socket.emit("playerColor", "black");
-          const playerOneUserId = Object.keys(games[gameId].players).find(
-            (id) => games[gameId].players[id].color === "white"
-          );
-
-          if (playerOneUserId) {
-            const playerOneName = games[gameId].players[playerOneUserId].name;
-            socket.emit("receivePlayerOneInfo", {
-              playerOneName,
-              playerOneUserId,
-            });
-          }
-        }
+        socket.emit("error", "Game is already full. Please try another game.");
       }
     } catch (error) {
       console.error("Error joining game:", error);
@@ -111,12 +176,18 @@ io.on("connection", (socket) => {
   });
 
   socket.on("startGame", async (gameId, playerTwoName, playerTwoId) => {
+    const game = games[gameId];
+    if (!game) {
+      return socket.emit("error", "Game not found.");
+    }
+
     if (playerTwoId) {
-      games[gameId].players[playerTwoId] = {
-        socketId: socket.id,
-        color: "black",
+      game.playerTwo = {
+        userId: playerTwoId,
         name: playerTwoName,
+        color: "black",
       };
+      game.playerTwoSocketId = socket.id;
       io.to(gameId).emit("playerTwoJoined", {
         playerTwoName,
         playerTwoId,
@@ -133,66 +204,91 @@ io.on("connection", (socket) => {
   });
 
   socket.on("move", (data) => {
-    const gameName = [...socket.rooms][1];
-    const game = games[gameName];
     const { gameId, sourceSquare, targetSquare, fen } = data;
+    const game = games[gameId];
 
     if (!game) {
       return socket.emit("error", "Invalid game.");
     }
 
-    const playerColor = Object.values(game.players).find(
-      (player) => player.socketId === socket.id
-    )?.color;
+    // Determine which player is making the move
+    const player =
+      game.playerOneSocketId === socket.id ? game.playerOne : game.playerTwo;
 
-    if (playerColor !== game.currentTurn) {
+    if (!player) {
+      return socket.emit("error", "Player not found.");
+    }
+
+    if (player.color !== game.currentTurn) {
       return socket.emit("invalidMove", "It's not your turn");
     }
 
     game.fen = fen;
-    socket.to(gameName).emit("move", { sourceSquare, targetSquare });
+    game.moves.push({
+      fen,
+      moveNumber: game.moves.length + 1,
+      color: player.color,
+      from: sourceSquare,
+      to: targetSquare,
+    });
+
     game.currentTurn = game.currentTurn === "white" ? "black" : "white";
-    io.to(gameName).emit("currentTurn", game.currentTurn);
+
+    updateGameState(gameId, fen, game.currentTurn, game.moves).catch(
+      (error) => {
+        console.error("Failed to update game state in the database", error);
+      }
+    );
+
+    socket.to(gameId).emit("move", { sourceSquare, targetSquare });
+    io.to(gameId).emit("currentTurn", game.currentTurn);
+    io.to(gameId).emit("moveData", game.moves);
   });
 
   socket.on("playerResigns", ({ gameId, isPlayerOne }) => {
-    if (!games[gameId]) {
+    const game = games[gameId];
+    if (!game) {
       return;
     }
 
     if (isPlayerOne) {
       io.in(gameId).emit("gameEndsInResignation", { winner: "Black Wins" });
-      games[gameId].winner = "black";
-    } else if (isPlayerOne === false) {
+      game.result = "black_wins";
+    } else {
       io.in(gameId).emit("gameEndsInResignation", { winner: "White Wins" });
-      games[gameId].winner = "white";
+      game.result = "white_wins";
     }
+
+    game.status = "completed";
   });
 
   socket.on("rematchRequest", async ({ gameId, isPlayerOne }) => {
-    if (!games[gameId]) {
+    const game = games[gameId];
+    if (!game) {
       return;
     }
 
     if (isPlayerOne) {
-      games[gameId].rematchRequestedByPlayerOne = true;
-    } else if (!isPlayerOne) {
-      games[gameId].rematchRequestedByPlayerTwo = true;
+      game.rematchRequestedByPlayerOne = true;
+    } else {
+      game.rematchRequestedByPlayerTwo = true;
     }
 
     io.in(gameId).emit("rematchStatus", {
-      rematchRequestedByPlayerOne: games[gameId].rematchRequestedByPlayerOne,
-      rematchRequestedByPlayerTwo: games[gameId].rematchRequestedByPlayerTwo,
+      rematchRequestedByPlayerOne: game.rematchRequestedByPlayerOne,
+      rematchRequestedByPlayerTwo: game.rematchRequestedByPlayerTwo,
     });
 
-    if (
-      games[gameId].rematchRequestedByPlayerOne &&
-      games[gameId].rematchRequestedByPlayerTwo
-    ) {
+    if (game.rematchRequestedByPlayerOne && game.rematchRequestedByPlayerTwo) {
       await createRematchService(gameId);
       io.in(gameId).emit("startNewGame", { gameId });
-      games[gameId].rematchRequestedByPlayerOne = false;
-      games[gameId].rematchRequestedByPlayerTwo = false;
+      game.rematchRequestedByPlayerOne = false;
+      game.rematchRequestedByPlayerTwo = false;
+      game.status = "in_progress";
+      game.result = null;
+      game.moves = [];
+      game.fen = "start";
+      game.currentTurn = "white";
     }
   });
 
@@ -200,11 +296,10 @@ io.on("connection", (socket) => {
     console.log("A user disconnected:", socket.id);
     for (const gameId in games) {
       const game = games[gameId];
-      for (const userId in game.players) {
-        if (game.players[userId].socketId === socket.id) {
-          game.players[userId].socketId = null;
-          break;
-        }
+      if (game.playerOneSocketId === socket.id) {
+        game.playerOneSocketId = null;
+      } else if (game.playerTwoSocketId === socket.id) {
+        game.playerTwoSocketId = null;
       }
     }
   });

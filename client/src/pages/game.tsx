@@ -1,3 +1,4 @@
+/* eslint-disable no-constant-binary-expression */
 import { useState, useEffect, useMemo } from "react";
 import { Chess } from "../customChess";
 import { Chessboard } from "react-chessboard";
@@ -6,8 +7,7 @@ import { useSelector, useDispatch } from "react-redux";
 import { RootState, AppDispatch } from "../store";
 import getSocketInstance from "../socket";
 import { useParams } from "react-router-dom";
-import { updateGameState } from "../network/games_api";
-import { setCurrentTurn, setFen, setBoardOrientation, setResult } from "../features/game/gameSlice";
+import { setCurrentTurn, setFen, setBoardOrientation, setResult, addMove, setMoves } from "../features/game/gameSlice";
 import Room from "../components/room";
 
 interface MoveData {
@@ -19,10 +19,32 @@ const Game: React.FC = () => {
   const [game] = useState(new Chess());
   const socket = useMemo(() => getSocketInstance(), []);
   const { isPlayerOne, isPlayerTwo } = useSelector((state: RootState) => state.player);
-  const { fen, boardOrientation, gameStarted, result, isGameOver } = useSelector((state: RootState) => state.game);
+  const { fen, boardOrientation, gameStarted, result, isGameOver, currentTurn } = useSelector(
+    (state: RootState) => state.game
+  );
   const { gameId } = useParams<{ gameId: string }>();
 
   const dispatch = useDispatch<AppDispatch>();
+
+  useEffect(() => {
+    socket.on("loadGameState", (gameState) => {
+      const playerId = localStorage.getItem("playerId");
+      game.load(gameState.fen);
+
+      dispatch(setFen(gameState.fen));
+      dispatch(setCurrentTurn(gameState.currentTurn));
+      dispatch(setMoves(gameState.moves));
+      if (gameState.playerOne?.userId === playerId) {
+        dispatch(setBoardOrientation("white"));
+      } else {
+        dispatch(setBoardOrientation("black"));
+      }
+    });
+
+    return () => {
+      socket.off("loadGameState");
+    };
+  }, [socket, game, dispatch]);
 
   useEffect(() => {
     socket.on("rematchStatus", ({ rematchRequestedByPlayerOne, rematchRequestedByPlayerTwo }) => {
@@ -46,6 +68,9 @@ const Game: React.FC = () => {
     socket.on("playerColor", (color: "white" | "black") => {
       dispatch(setBoardOrientation(color));
     });
+    return () => {
+      socket.off("playerColor");
+    };
   }, [socket, dispatch]);
 
   useEffect(() => {
@@ -63,8 +88,7 @@ const Game: React.FC = () => {
       alert("WHITE WINS!");
       dispatch(setResult("WHITE WINS"));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fen]);
+  }, [fen, dispatch]);
 
   useEffect(() => {
     socket.on("move", ({ sourceSquare, targetSquare }: MoveData) => {
@@ -74,8 +98,13 @@ const Game: React.FC = () => {
       }
     });
 
+    socket.on("moveData", (moves) => {
+      dispatch(setMoves(moves));
+    });
+
     return () => {
       socket.off("move");
+      socket.off("moveData");
     };
   }, [socket, game, dispatch]);
 
@@ -100,10 +129,15 @@ const Game: React.FC = () => {
       dispatch(setFen(newFen));
       if (gameId) {
         socket.emit("move", { gameId, sourceSquare, targetSquare, fen: newFen });
-        // TODO: move to server
-        updateGameState(gameId, newFen, game.turn() === "w" ? "white" : "black").catch((error) => {
-          console.error("Failed to update game state in the database", error);
-        });
+        dispatch(
+          addMove({
+            fen: newFen,
+            moveNumber: game.moves.length + 1,
+            color: currentTurn,
+            from: sourceSquare,
+            to: targetSquare,
+          })
+        );
       }
     }
     return !!move;
@@ -123,7 +157,6 @@ const Game: React.FC = () => {
               boardOrientation={boardOrientation}
               boardWidth={500}
               onPieceDrop={onDrop}
-              // eslint-disable-next-line no-constant-binary-expression
               arePiecesDraggable={result === null ? true : false || isGameOver}
               customNotationStyle={{
                 color: "#000",
@@ -136,7 +169,6 @@ const Game: React.FC = () => {
               }}
             />
           </div>
-
           <PlayerNames />
         </div>
       ) : (

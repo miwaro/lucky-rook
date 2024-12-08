@@ -1,6 +1,14 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { Chess } from "chess.js";
 
+interface Move {
+  fen: string;
+  moveNumber: number;
+  color: "white" | "black";
+  from: string;
+  to: string;
+}
+
 interface GameState {
   gameId?: string | null;
   fen: string;
@@ -11,6 +19,7 @@ interface GameState {
   rematchRequestedByPlayerOne: boolean;
   rematchRequestedByPlayerTwo: boolean;
   isGameOver: boolean;
+  moves: Move[];
 }
 
 const initialState: GameState = {
@@ -23,6 +32,7 @@ const initialState: GameState = {
   rematchRequestedByPlayerOne: false,
   rematchRequestedByPlayerTwo: false,
   isGameOver: false,
+  moves: [],
 };
 
 const gameSlice = createSlice({
@@ -56,6 +66,12 @@ const gameSlice = createSlice({
     setIsGameOver(state, action: PayloadAction<boolean>) {
       state.isGameOver = action.payload;
     },
+    setMoves(state, action: PayloadAction<Move[]>) {
+      state.moves = action.payload;
+    },
+    addMove(state, action: PayloadAction<Move>) {
+      state.moves.push(action.payload);
+    },
   },
 });
 
@@ -69,5 +85,7 @@ export const {
   setRematchRequestedByPlayerOne,
   setRematchRequestedByPlayerTwo,
   setIsGameOver,
+  setMoves,
+  addMove,
 } = gameSlice.actions;
 export default gameSlice.reducer;

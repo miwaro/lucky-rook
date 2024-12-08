@@ -90,14 +90,14 @@ const PlayerNames: React.FC = () => {
               <h2 className="text-stone-950 text-center">{receivedPlayerTwoName || playerTwoName}</h2>
             )}
           </div>
-          {boardOrientation === "white" && isPlayerOne && (
+          {boardOrientation === "white" && isPlayerOne && !isGameOver && (
             <div className="flex gap-3">
               <button className="bg-stone-800 rounded-md p-3" onClick={handleResign}>
                 Resign
               </button>
             </div>
           )}
-          {boardOrientation === "black" && isPlayerTwo && (
+          {boardOrientation === "black" && isPlayerTwo && !isGameOver && (
             <div className="flex gap-3">
               <button className="bg-stone-800 rounded-md p-3" onClick={handleResign}>
                 Resign

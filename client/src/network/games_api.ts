@@ -15,7 +15,12 @@ export async function getCurrentGameState(gameId: string): Promise<Game> {
   }
 }
 
-export async function updateGameState(gameId: string, fen: string, currentTurn: "white" | "black"): Promise<void> {
+export async function updateGameState(
+  gameId: string,
+  fen: string,
+  currentTurn: "white" | "black",
+  moves: unknown
+): Promise<void> {
   try {
     const response = await fetch(`/api/games/${gameId}`, {
       method: "PUT",
@@ -25,6 +30,7 @@ export async function updateGameState(gameId: string, fen: string, currentTurn: 
       body: JSON.stringify({
         fen,
         currentTurn,
+        moves,
       }),
     });
 

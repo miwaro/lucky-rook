@@ -40,7 +40,7 @@ const PlayerTwoJoin: React.FC = () => {
       dispatch(setPlayerTwoId(playerTwoId));
 
       if (!isPlayerOne) {
-        socket.emit("joinGame", gameId, userId, playerName);
+        socket.emit("joinGame", gameId, userId, playerName || "anonymous");
       }
 
       return () => {

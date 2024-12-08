@@ -83,12 +83,13 @@ export const getCurrentGameState = async (gameId: string) => {
 export const updateGameState = async (
   gameId: string,
   fen: string,
-  currentTurn: "white" | "black"
+  currentTurn: "white" | "black",
+  moves: any
 ) => {
   try {
     const updatedGame = await Game.findOneAndUpdate(
       { gameId },
-      { fen, currentTurn },
+      { fen, currentTurn, moves },
       { new: true }
     );
 

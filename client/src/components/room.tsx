@@ -1,11 +1,11 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { useParams } from "react-router-dom";
 import { RootState, AppDispatch } from "../store";
 import LinkShare from "../components/linkShare";
 import PlayerTwoJoin from "../components/playerTwoJoin";
 import getSocketInstance from "../socket";
-import { setBoardOrientation, setCurrentTurn, setFen, setGameStarted } from "../features/game/gameSlice";
+import { setBoardOrientation, setCurrentTurn, setFen, setGameStarted, setMoves } from "../features/game/gameSlice";
 import {
   setReceivedPlayerTwoName,
   setReceivedPlayerOneName,
@@ -16,7 +16,6 @@ import {
   setPlayerOneName,
   setIsPlayerOne,
 } from "../features/player/playerSlice";
-import { getCurrentGameState } from "../network/games_api";
 import { Chessboard } from "react-chessboard";
 import PlayerNames from "./playerNames";
 
@@ -31,43 +30,40 @@ const Room: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!gameStarted) setLoading(false);
     if (gameId) {
-      const fetchGameState = async () => {
-        try {
-          const gameState = await getCurrentGameState(gameId);
-          const playerId = localStorage.getItem("playerId");
-
-          if (playerId === gameState.playerOne.userId) {
-            dispatch(setPlayerOneName(gameState.playerOne.name));
-            dispatch(setPlayerOneId(gameState.playerOne.userId));
-            dispatch(setIsPlayerOne(true));
-            dispatch(setIsPlayerTwo(false));
-            dispatch(setBoardOrientation("white"));
-            socket.emit("joinGame", gameId, playerId, gameState.playerOne.name);
-          } else if (playerId === gameState.playerTwo.userId) {
-            dispatch(setIsPlayerOne(false));
-            dispatch(setIsPlayerTwo(true));
-            dispatch(setPlayerTwoName(gameState.playerTwo.name));
-            dispatch(setPlayerTwoId(gameState.playerTwo.userId));
-            dispatch(setBoardOrientation("black"));
-
-            socket.emit("joinGame", gameId, playerId, gameState.playerTwo.name);
-          }
-
-          dispatch(setCurrentTurn(gameState.currentTurn));
-          dispatch(setGameStarted(gameState.gameStarted));
-          dispatch(setFen(gameState.fen));
-        } catch (error) {
-          console.error("Error fetching game state:", error);
-        } finally {
-          setLoading(false);
+      const playerId = localStorage.getItem("playerId");
+      socket.emit("joinGame", gameId, playerId);
+      socket.on("loadGameState", (gameState) => {
+        if (playerId === gameState.playerOne.userId) {
+          dispatch(setPlayerOneName(gameState.playerOne.name));
+          dispatch(setPlayerOneId(gameState.playerOne.userId));
+          dispatch(setIsPlayerOne(true));
+          dispatch(setIsPlayerTwo(false));
+          dispatch(setBoardOrientation("white"));
+        } else if (gameState.playerTwo && playerId === gameState.playerTwo.userId) {
+          dispatch(setIsPlayerOne(false));
+          dispatch(setIsPlayerTwo(true));
+          dispatch(setPlayerTwoName(gameState.playerTwo.name));
+          dispatch(setPlayerTwoId(gameState.playerTwo.userId));
+          dispatch(setBoardOrientation("black"));
         }
-      };
 
-      fetchGameState();
+        dispatch(setCurrentTurn(gameState.currentTurn));
+        dispatch(setFen(gameState.fen));
+        dispatch(setMoves(gameState.moves));
+
+        if (gameState.fen !== "start") {
+          dispatch(setGameStarted(true));
+        }
+        setLoading(false);
+      });
+
+      return () => {
+        socket.off("loadGameState");
+      };
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameId, socket]);
+  }, [gameId, socket, dispatch, gameStarted]);
 
   useEffect(() => {
     if (!gameId) return;
@@ -117,7 +113,7 @@ const Room: React.FC = () => {
     }
   }, [gameId, isPlayerOne, loggedInUser, playerOneId, socket]);
 
-  if (loading && gameStarted) {
+  if (loading) {
     return (
       <div className="flex">
         <div className="border-2 border-stone-950 p-4 bg-stone-800 rounded-lg">
@@ -137,10 +133,6 @@ const Room: React.FC = () => {
         <PlayerNames />
       </div>
     );
-  }
-
-  if (loading) {
-    return <div>Loading</div>;
   }
 
   return (
