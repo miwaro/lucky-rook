@@ -156,11 +156,11 @@ const PlayerNames: React.FC = () => {
         </div>
         {boardOrientation === "black" ? (
           <h2 className="text-center border-2 text-stone-950 font-semibold bg-stone-900/30 rounded-md p-3 backdrop-blur-lg">
-            {receivedPlayerOneName || playerOneName}
+            {receivedPlayerTwoName || playerTwoName}
           </h2>
         ) : (
           <h2 className="text-center font-semibold border-2 bg-stone-900/30  rounded-md p-3 backdrop-blur-lg">
-            {receivedPlayerTwoName || playerTwoName}
+            {receivedPlayerOneName || playerOneName}
           </h2>
         )}
       </div>

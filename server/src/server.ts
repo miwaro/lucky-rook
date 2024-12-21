@@ -81,13 +81,11 @@ io.on("connection", (socket) => {
             name: dbGame.playerOne?.name || "anonymous",
             color: dbGame.playerOne?.color || "white",
           },
-          playerTwo: dbGame.playerTwo
-            ? {
-                userId: dbGame.playerTwo.userId || "",
-                name: dbGame.playerTwo.name || "anonymous",
-                color: dbGame.playerTwo.color || "black",
-              }
-            : null,
+          playerTwo: {
+            userId: dbGame.playerTwo?.userId || "",
+            name: dbGame.playerTwo?.name || "anonymous",
+            color: dbGame.playerTwo?.color || "black",
+          },
           moves: dbGame.moves,
           currentTurn: dbGame.currentTurn || "white",
           status: dbGame.status,
@@ -184,6 +182,11 @@ io.on("connection", (socket) => {
     games[gameId] = {
       ...games[gameId],
       gameStarted: true,
+      playerTwo: {
+        userId: playerTwoId,
+        name: playerTwoName,
+        color: "black",
+      },
     };
 
     if (playerTwoId) {

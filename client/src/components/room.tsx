@@ -36,7 +36,6 @@ const Room: React.FC = () => {
       socket.emit("joinGame", gameId, playerId);
       socket.on("loadGameState", (gameState) => {
         if (playerId === gameState.playerOne.userId) {
-          dispatch(setPlayerOneName(gameState.playerOne.name));
           dispatch(setPlayerOneId(gameState.playerOne.userId));
           dispatch(setIsPlayerOne(true));
           dispatch(setIsPlayerTwo(false));
@@ -44,11 +43,12 @@ const Room: React.FC = () => {
         } else if (gameState.playerTwo && playerId === gameState.playerTwo.userId) {
           dispatch(setIsPlayerOne(false));
           dispatch(setIsPlayerTwo(true));
-          dispatch(setPlayerTwoName(gameState.playerTwo.name));
           dispatch(setPlayerTwoId(gameState.playerTwo.userId));
           dispatch(setBoardOrientation("black"));
         }
 
+        dispatch(setPlayerOneName(gameState.playerOne.name));
+        dispatch(setPlayerTwoName(gameState.playerTwo.name));
         dispatch(setCurrentTurn(gameState.currentTurn));
         dispatch(setFen(gameState.fen));
         dispatch(setMoves(gameState.moves));
