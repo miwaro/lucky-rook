@@ -181,6 +181,11 @@ io.on("connection", (socket) => {
       return socket.emit("error", "Game not found.");
     }
 
+    games[gameId] = {
+      ...games[gameId],
+      gameStarted: true,
+    };
+
     if (playerTwoId) {
       game.playerTwo = {
         userId: playerTwoId,
@@ -240,7 +245,7 @@ io.on("connection", (socket) => {
       }
     );
 
-    socket.to(gameId).emit("move", { sourceSquare, targetSquare });
+    io.to(gameId).emit("move", { sourceSquare, targetSquare });
     io.to(gameId).emit("currentTurn", game.currentTurn);
     io.to(gameId).emit("moveData", game.moves);
   });
@@ -262,33 +267,75 @@ io.on("connection", (socket) => {
     game.status = "completed";
   });
 
-  socket.on("rematchRequest", async ({ gameId, isPlayerOne }) => {
+  socket.on("rematchAction", async ({ gameId, action, isPlayerOne }) => {
     const game = games[gameId];
     if (!game) {
-      return;
+      return socket.emit("error", "Game not found.");
     }
 
-    if (isPlayerOne) {
-      game.rematchRequestedByPlayerOne = true;
-    } else {
-      game.rematchRequestedByPlayerTwo = true;
-    }
+    switch (action) {
+      case "request":
+        if (isPlayerOne) {
+          game.rematchRequestedByPlayerOne = true;
+        } else {
+          game.rematchRequestedByPlayerTwo = true;
+        }
 
-    io.in(gameId).emit("rematchStatus", {
-      rematchRequestedByPlayerOne: game.rematchRequestedByPlayerOne,
-      rematchRequestedByPlayerTwo: game.rematchRequestedByPlayerTwo,
-    });
+        io.to(gameId).emit("rematchStatus", {
+          requestedByPlayerOne: game.rematchRequestedByPlayerOne,
+          requestedByPlayerTwo: game.rematchRequestedByPlayerTwo,
+          message: "Waiting for opponent...",
+          waiting: true,
+        });
 
-    if (game.rematchRequestedByPlayerOne && game.rematchRequestedByPlayerTwo) {
-      await createRematchService(gameId);
-      io.in(gameId).emit("startNewGame", { gameId });
-      game.rematchRequestedByPlayerOne = false;
-      game.rematchRequestedByPlayerTwo = false;
-      game.status = "in_progress";
-      game.result = null;
-      game.moves = [];
-      game.fen = "start";
-      game.currentTurn = "white";
+        if (
+          game.rematchRequestedByPlayerOne &&
+          game.rematchRequestedByPlayerTwo
+        ) {
+          const newGame = await createRematchService(gameId);
+
+          // Add both players to the new game's room
+          if (game.playerOneSocketId) {
+            io.sockets.sockets
+              .get(game.playerOneSocketId)
+              ?.join(newGame.gameId);
+          }
+          if (game.playerTwoSocketId) {
+            io.sockets.sockets
+              .get(game.playerTwoSocketId)
+              ?.join(newGame.gameId);
+          }
+
+          // Update the in-memory game state for the new game
+          games[newGame.gameId] = {
+            ...games[gameId],
+            gameId: newGame.gameId,
+            fen: "start",
+            moves: [],
+            currentTurn: "white",
+            rematchRequestedByPlayerOne: false,
+            rematchRequestedByPlayerTwo: false,
+            result: null,
+          };
+
+          // Notify both players of the new game
+          io.to(newGame.gameId).emit("startNewGame", newGame.gameId);
+        }
+        break;
+
+      case "decline":
+        game.rematchRequestedByPlayerOne = false;
+        game.rematchRequestedByPlayerTwo = false;
+        io.in(gameId).emit("rematchStatus", {
+          requestedByPlayerOne: false,
+          requestedByPlayerTwo: false,
+          message: "Match Declined",
+          waiting: false,
+        });
+        break;
+
+      default:
+        console.error("Invalid action received:", action);
     }
   });
 

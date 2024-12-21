@@ -16,10 +16,14 @@ interface GameState {
   currentTurn: "white" | "black";
   gameStarted: boolean;
   result: string | null;
-  rematchRequestedByPlayerOne: boolean;
-  rematchRequestedByPlayerTwo: boolean;
   isGameOver: boolean;
   moves: Move[];
+  rematch: {
+    requestedByPlayerOne: boolean;
+    requestedByPlayerTwo: boolean;
+    message: string;
+    waiting: boolean;
+  };
 }
 
 const initialState: GameState = {
@@ -29,10 +33,14 @@ const initialState: GameState = {
   currentTurn: "white",
   gameStarted: false,
   result: null,
-  rematchRequestedByPlayerOne: false,
-  rematchRequestedByPlayerTwo: false,
   isGameOver: false,
   moves: [],
+  rematch: {
+    requestedByPlayerOne: false,
+    requestedByPlayerTwo: false,
+    message: "Rematch",
+    waiting: false,
+  },
 };
 
 const gameSlice = createSlice({
@@ -57,12 +65,6 @@ const gameSlice = createSlice({
     setResult(state, action: PayloadAction<string>) {
       state.result = action.payload;
     },
-    setRematchRequestedByPlayerOne(state, action: PayloadAction<boolean>) {
-      state.rematchRequestedByPlayerOne = action.payload;
-    },
-    setRematchRequestedByPlayerTwo(state, action: PayloadAction<boolean>) {
-      state.rematchRequestedByPlayerTwo = action.payload;
-    },
     setIsGameOver(state, action: PayloadAction<boolean>) {
       state.isGameOver = action.payload;
     },
@@ -71,6 +73,38 @@ const gameSlice = createSlice({
     },
     addMove(state, action: PayloadAction<Move>) {
       state.moves.push(action.payload);
+    },
+    setRematchRequestedByPlayer(state, action: PayloadAction<{ player: "one" | "two"; requested: boolean }>) {
+      if (action.payload.player === "one") {
+        state.rematch.requestedByPlayerOne = action.payload.requested;
+      } else {
+        state.rematch.requestedByPlayerTwo = action.payload.requested;
+      }
+    },
+    setRematchMessage(state, action: PayloadAction<string>) {
+      state.rematch.message = action.payload;
+    },
+    setWaitingForRematch(state, action: PayloadAction<boolean>) {
+      state.rematch.waiting = action.payload;
+    },
+    resetRematchState(state) {
+      state.rematch = {
+        requestedByPlayerOne: false,
+        requestedByPlayerTwo: false,
+        message: "Rematch",
+        waiting: false,
+      };
+    },
+    updateRematchState(
+      state,
+      action: PayloadAction<{
+        requestedByPlayerOne: boolean;
+        requestedByPlayerTwo: boolean;
+        message: string;
+        waiting: boolean;
+      }>
+    ) {
+      state.rematch = action.payload;
     },
   },
 });
@@ -82,10 +116,13 @@ export const {
   setCurrentTurn,
   setGameId,
   setResult,
-  setRematchRequestedByPlayerOne,
-  setRematchRequestedByPlayerTwo,
+  setRematchMessage,
   setIsGameOver,
   setMoves,
   addMove,
+  setWaitingForRematch,
+  setRematchRequestedByPlayer,
+  updateRematchState,
 } = gameSlice.actions;
+
 export default gameSlice.reducer;

@@ -1,13 +1,20 @@
-/* eslint-disable no-constant-binary-expression */
 import { useState, useEffect, useMemo } from "react";
 import { Chess } from "../customChess";
 import { Chessboard } from "react-chessboard";
-import PlayerNames from "../components/playerNames";
+import PlayerNames from "../components/playerModule/playerNames";
 import { useSelector, useDispatch } from "react-redux";
 import { RootState, AppDispatch } from "../store";
 import getSocketInstance from "../socket";
-import { useParams } from "react-router-dom";
-import { setCurrentTurn, setFen, setBoardOrientation, setResult, addMove, setMoves } from "../features/game/gameSlice";
+import { useNavigate, useParams } from "react-router-dom";
+import {
+  setCurrentTurn,
+  setFen,
+  setBoardOrientation,
+  setResult,
+  addMove,
+  setMoves,
+  setIsGameOver,
+} from "../features/game/gameSlice";
 import Room from "../components/room";
 
 interface MoveData {
@@ -18,6 +25,7 @@ interface MoveData {
 const Game: React.FC = () => {
   const [game] = useState(new Chess());
   const socket = useMemo(() => getSocketInstance(), []);
+  const navigate = useNavigate();
   const { isPlayerOne, isPlayerTwo } = useSelector((state: RootState) => state.player);
   const { fen, boardOrientation, gameStarted, result, isGameOver, currentTurn } = useSelector(
     (state: RootState) => state.game
@@ -25,6 +33,21 @@ const Game: React.FC = () => {
   const { gameId } = useParams<{ gameId: string }>();
 
   const dispatch = useDispatch<AppDispatch>();
+
+  useEffect(() => {
+    if (gameId) {
+      socket.emit("joinRoom", { gameId });
+    }
+
+    socket.on("gameJoined", (message) => {
+      console.log("Game joined confirmation:", message);
+    });
+
+    return () => {
+      console.log("Leaving room:", gameId);
+      socket.emit("leaveRoom", { gameId });
+    };
+  }, [socket, gameId]);
 
   useEffect(() => {
     socket.on("loadGameState", (gameState) => {
@@ -47,31 +70,18 @@ const Game: React.FC = () => {
   }, [socket, game, dispatch]);
 
   useEffect(() => {
-    socket.on("rematchStatus", ({ rematchRequestedByPlayerOne, rematchRequestedByPlayerTwo }) => {
-      if (rematchRequestedByPlayerOne && rematchRequestedByPlayerTwo && isGameOver) {
-        game.load("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
-        dispatch(setFen(game.fen()));
-      } else {
-        if (isPlayerOne && rematchRequestedByPlayerOne) {
-          // setRematchMessage('Waiting for Player Two to accept the rematch...');
-        } else if (!isPlayerOne && rematchRequestedByPlayerTwo) {
-          // setRematchMessage('Waiting for Player One to accept the rematch...');
-        } else {
-          // setRematchMessage('Opponent has requested a rematch. Click rematch to accept.');
-        }
-      }
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isPlayerOne, socket, isGameOver]);
-
-  useEffect(() => {
-    socket.on("playerColor", (color: "white" | "black") => {
-      dispatch(setBoardOrientation(color));
+    socket.on("startNewGame", (newGameId) => {
+      game.load("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+      dispatch(setIsGameOver(false));
+      dispatch(setFen(game.fen()));
+      dispatch(setMoves([]));
+      dispatch(setCurrentTurn("white"));
+      navigate(`/${newGameId}`);
     });
     return () => {
-      socket.off("playerColor");
+      socket.off("startNewGame");
     };
-  }, [socket, dispatch]);
+  }, [socket, game, navigate, dispatch]);
 
   useEffect(() => {
     const piecePlacement = fen.split(" ")[0];
@@ -104,7 +114,6 @@ const Game: React.FC = () => {
 
     return () => {
       socket.off("move");
-      socket.off("moveData");
     };
   }, [socket, game, dispatch]);
 
@@ -147,6 +156,8 @@ const Game: React.FC = () => {
     return makeMove(sourceSquare, targetSquare);
   }
 
+  const canDrag = result === null || !isGameOver;
+
   return (
     <div className="absolute inset-0 flex items-center justify-center z-0">
       {gameStarted ? (
@@ -157,7 +168,7 @@ const Game: React.FC = () => {
               boardOrientation={boardOrientation}
               boardWidth={500}
               onPieceDrop={onDrop}
-              arePiecesDraggable={result === null ? true : false || isGameOver}
+              arePiecesDraggable={canDrag}
               customNotationStyle={{
                 color: "#000",
                 fontWeight: "bold",

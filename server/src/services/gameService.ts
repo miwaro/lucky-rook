@@ -101,7 +101,7 @@ export const updateGameState = async (
 };
 
 export const createRematch = async (gameId: string) => {
-  const newGameId = uuidv4();
+  const newGameId = uuidv4().slice(0, 8);
   try {
     const game = await Game.findOne({ gameId });
 

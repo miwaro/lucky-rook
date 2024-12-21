@@ -17,7 +17,7 @@ import {
   setIsPlayerOne,
 } from "../features/player/playerSlice";
 import { Chessboard } from "react-chessboard";
-import PlayerNames from "./playerNames";
+import PlayerNames from "./playerModule/playerNames";
 
 const Room: React.FC = () => {
   const socketRef = useRef(getSocketInstance());
@@ -53,7 +53,7 @@ const Room: React.FC = () => {
         dispatch(setFen(gameState.fen));
         dispatch(setMoves(gameState.moves));
 
-        if (gameState.fen !== "start") {
+        if (gameState.gameStarted) {
           dispatch(setGameStarted(true));
         }
         setLoading(false);
