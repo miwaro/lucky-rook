@@ -15,6 +15,8 @@ import {
   setPlayerTwoName,
   setPlayerOneName,
   setIsPlayerOne,
+  setIsPlayerOneConnected,
+  setIsPlayerTwoConnected,
 } from "../features/player/playerSlice";
 import { Chessboard } from "react-chessboard";
 import PlayerNames from "./playerModule/playerNames";
@@ -48,7 +50,7 @@ const Room: React.FC = () => {
         }
 
         dispatch(setPlayerOneName(gameState.playerOne.name));
-        dispatch(setPlayerTwoName(gameState.playerTwo.name));
+        dispatch(setPlayerTwoName(gameState.playerTwo?.name));
         dispatch(setCurrentTurn(gameState.currentTurn));
         dispatch(setFen(gameState.fen));
         dispatch(setMoves(gameState.moves));
@@ -64,6 +66,14 @@ const Room: React.FC = () => {
       };
     }
   }, [gameId, socket, dispatch, gameStarted]);
+
+  useEffect(() => {
+    socket.on("playerConnection", (data) => {
+      dispatch(setIsPlayerOneConnected(data.playerOneConnected));
+      dispatch(setIsPlayerTwoConnected(data.playerTwoConnected));
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [socket]);
 
   useEffect(() => {
     if (!gameId) return;

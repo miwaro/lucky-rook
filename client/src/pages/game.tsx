@@ -161,7 +161,7 @@ const Game: React.FC = () => {
   return (
     <div className="absolute inset-0 flex items-center justify-center z-0">
       {gameStarted ? (
-        <div className="flex">
+        <div className="flex items-center">
           <div className="border-2 border-stone-950 p-4 bg-stone-800 rounded-lg">
             <Chessboard
               position={fen}
@@ -180,7 +180,9 @@ const Game: React.FC = () => {
               }}
             />
           </div>
-          <PlayerNames />
+          <div>
+            <PlayerNames />
+          </div>
         </div>
       ) : (
         <Room />

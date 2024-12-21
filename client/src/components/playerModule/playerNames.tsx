@@ -23,6 +23,8 @@ const PlayerNames: React.FC = () => {
   const {
     isPlayerOne,
     isPlayerTwo,
+    isPlayerOneConnected,
+    isPlayerTwoConnected,
     playerOneName,
     playerOneId,
     playerTwoName,
@@ -60,20 +62,24 @@ const PlayerNames: React.FC = () => {
   const renderRematchButtons = () => {
     if (!requestedByPlayerOne && !requestedByPlayerTwo) {
       return (
-        <div className="flex flex-col">
+        <div className="flex flex-col gap-3">
           <motion.button whileTap={{ scale: 0.97 }} className="bg-stone-900 p-1 rounded-md" onClick={handleRematch}>
             Rematch
           </motion.button>
-          {rematchMessage !== "Rematch" && rematchMessage}
+          <div>{rematchMessage !== "Rematch" && rematchMessage}</div>
         </div>
       );
     }
 
     if ((isPlayerOne && requestedByPlayerTwo) || (isPlayerTwo && requestedByPlayerOne)) {
       return (
-        <>
+        <div className="flex justify-between">
           <Tooltip title="accept">
-            <motion.button whileTap={{ scale: 0.97 }} className="bg-green-950 rounded-md p-3" onClick={handleRematch}>
+            <motion.button
+              whileTap={{ scale: 0.97 }}
+              className="bg-green-950 rounded-md p-3 mx-4"
+              onClick={handleRematch}
+            >
               ✔
             </motion.button>
           </Tooltip>
@@ -81,13 +87,13 @@ const PlayerNames: React.FC = () => {
           <Tooltip title="decline">
             <motion.button
               whileTap={{ scale: 0.97 }}
-              className="bg-stone-950 rounded-md p-3"
+              className="bg-stone-950 rounded-md p-3 mx-4"
               onClick={handleDeclineRematch}
             >
               ✖
             </motion.button>
           </Tooltip>
-        </>
+        </div>
       );
     }
 
@@ -98,7 +104,7 @@ const PlayerNames: React.FC = () => {
           <Tooltip title="decline">
             <motion.button
               whileTap={{ scale: 0.97 }}
-              className="bg-stone-950 rounded-md p-3"
+              className="bg-stone-900 rounded-md p-3 ml-3"
               onClick={handleDeclineRematch}
             >
               ✖
@@ -111,22 +117,27 @@ const PlayerNames: React.FC = () => {
 
   return (
     <div className="flex flex-col gap-3 p-3 items-center">
-      <div className="ml-8 border border-stone-900 rounded p-1">
+      <div className="ml-8 border-4 p-3 m-3 border-stone-900 rounded">
+        <div className="flex justify-center gap-3 mb-3">
+          <div className="h-20 w-16 border-2 border-stone-950  rounded-md  bg-stone-800"></div>
+          <div className="h-20 w-16 border-2 border-stone-950 rounded-md bg-stone-800"></div>
+          <div className="h-20 w-16 border-2 border-stone-950 rounded-md bg-stone-800"></div>
+        </div>
         <div>
           {boardOrientation === "white" ? (
-            <h2 className="text-center border-2 text-stone-950 font-semibold bg-stone-900/30 rounded-md p-3 backdrop-blur-lg">
-              {receivedPlayerTwoName || playerTwoName}
-            </h2>
+            <div className="flex gap-2 items-center border-2 bg-stone-900/30 rounded-md p-2 backdrop-blur-lg">
+              <div className={`w-2 h-2 rounded-full ${isPlayerTwoConnected ? "bg-green-500" : "bg-red-500"}`}></div>
+              <h2 className="text-center text-stone-100 font-semibold">{receivedPlayerTwoName || playerTwoName}</h2>
+            </div>
           ) : (
-            <h2 className="text-center font-semibold border-2 bg-stone-900/30  rounded-md p-3 backdrop-blur-lg">
-              {receivedPlayerOneName || playerOneName}
-            </h2>
+            <div className="flex gap-2 items-center border-2 bg-stone-900/30 rounded-md p-2 backdrop-blur-lg">
+              <div className={`w-2 h-2 rounded-full ${isPlayerOneConnected ? "bg-green-500" : "bg-red-500"}`}></div>
+              <h2 className="text-center text-stone-100 font-semibold">{receivedPlayerOneName || playerOneName}</h2>
+            </div>
           )}
 
-          <hr />
-
           {!isGameOver && (
-            <>
+            <div className="flex justify-center">
               {boardOrientation === "white" && isPlayerOne && (
                 <ResignButton
                   socket={socket}
@@ -145,24 +156,30 @@ const PlayerNames: React.FC = () => {
                   playerTwoId={playerTwoId}
                 />
               )}
-            </>
+            </div>
           )}
 
           {isGameOver && (
-            <div className="flex gap-4 items-center border-2 bg-stone-900/30 rounded-md p-3 backdrop-blur-lg">
-              {renderRematchButtons()}
-            </div>
+            // <div className="flex gap-4 items-center border-2 bg-stone-900/30 rounded-md p-3 backdrop-blur-lg">
+            <div className="flex justify-center p-3 m-3">{renderRematchButtons()}</div>
           )}
         </div>
         {boardOrientation === "black" ? (
-          <h2 className="text-center border-2 text-stone-950 font-semibold bg-stone-900/30 rounded-md p-3 backdrop-blur-lg">
-            {receivedPlayerTwoName || playerTwoName}
-          </h2>
+          <div className="flex gap-2 items-center border-2 bg-stone-900/30 rounded-md p-2 backdrop-blur-lg">
+            <div className={`w-2 h-2 rounded-full ${isPlayerTwoConnected ? "bg-green-500" : "bg-red-500"}`}></div>
+            <h2 className="text-center text-stone-100 font-semibold">{receivedPlayerTwoName || playerTwoName}</h2>
+          </div>
         ) : (
-          <h2 className="text-center font-semibold border-2 bg-stone-900/30  rounded-md p-3 backdrop-blur-lg">
-            {receivedPlayerOneName || playerOneName}
-          </h2>
+          <div className="flex gap-2 items-center border-2 bg-stone-900/30 rounded-md p-2 backdrop-blur-lg">
+            <div className={`w-2 h-2 rounded-full ${isPlayerOneConnected ? "bg-green-500" : "bg-red-500"}`}></div>
+            <h2 className="text-center text-stone-100 font-semibold">{receivedPlayerOneName || playerOneName}</h2>
+          </div>
         )}
+        <div className="flex justify-center gap-3 mt-3">
+          <div className="h-20 w-16 border-2 border-stone-950  rounded-md  bg-stone-800"></div>
+          <div className="h-20 w-16 border-2 border-stone-950 rounded-md bg-stone-800"></div>
+          <div className="h-20 w-16 border-2 border-stone-950 rounded-md bg-stone-800"></div>
+        </div>
       </div>
     </div>
   );

@@ -19,6 +19,14 @@ const io = new Server(server);
 
 const games: { [key: string]: InMemoryGameState } = {};
 
+const emitPlayerConnectionStatus = (gameId: string) => {
+  const game = games[gameId];
+  io.to(gameId).emit("playerConnection", {
+    playerOneConnected: !!game.playerOneSocketId,
+    playerTwoConnected: !!game.playerTwoSocketId,
+  });
+};
+
 io.on("connection", (socket) => {
   socket.on("createGame", async (playerOneName, userId, gameId) => {
     try {
@@ -36,11 +44,7 @@ io.on("connection", (socket) => {
         gameId,
         fen: "start",
         gameStarted: false,
-        playerOne: {
-          userId,
-          name: playerOneName,
-          color: "white",
-        },
+        playerOne,
         playerTwo: null,
         moves: [],
         currentTurn: "white",
@@ -55,6 +59,8 @@ io.on("connection", (socket) => {
         winner: null,
       };
 
+      await socket.join(gameId);
+      emitPlayerConnectionStatus(gameId);
       socket.emit("gameCreated", { gameId });
     } catch (error) {
       console.error("Error creating game:", error);
@@ -102,7 +108,8 @@ io.on("connection", (socket) => {
       // Check if player is reconnecting
       if (game.playerOne?.userId === userId) {
         game.playerOneSocketId = socket.id;
-        socket.join(gameId);
+        await socket.join(gameId);
+        emitPlayerConnectionStatus(gameId);
         if (game.playerOneSocketId) {
           socket.emit("loadGameState", {
             gameId: games[gameId].gameId,
@@ -124,7 +131,8 @@ io.on("connection", (socket) => {
         return;
       } else if (game.playerTwo?.userId === userId) {
         game.playerTwoSocketId = socket.id;
-        socket.join(gameId);
+        await socket.join(gameId);
+        emitPlayerConnectionStatus(gameId);
         if (game.playerTwoSocketId) {
           socket.emit("loadGameState", {
             gameId: games[gameId].gameId,
@@ -154,8 +162,8 @@ io.on("connection", (socket) => {
         game.playerTwoSocketId = socket.id;
 
         await addPlayerTwoService(gameId, game.playerTwo);
-
-        socket.join(gameId);
+        await socket.join(gameId);
+        emitPlayerConnectionStatus(gameId);
 
         socket.emit("playerColor", "black");
         const playerOneName = game.playerOne?.name || "anonymous";
@@ -308,6 +316,7 @@ io.on("connection", (socket) => {
               .get(game.playerTwoSocketId)
               ?.join(newGame.gameId);
           }
+          emitPlayerConnectionStatus(gameId);
 
           // Update the in-memory game state for the new game
           games[newGame.gameId] = {
@@ -351,6 +360,7 @@ io.on("connection", (socket) => {
       } else if (game.playerTwoSocketId === socket.id) {
         game.playerTwoSocketId = null;
       }
+      emitPlayerConnectionStatus(gameId);
     }
   });
 });

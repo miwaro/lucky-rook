@@ -12,6 +12,8 @@ interface PlayerState {
   receivedPlayerOneName: string | null;
   receivedPlayerTwoName: string | null;
   loggedInUser: User | null;
+  isPlayerOneConnected: boolean;
+  isPlayerTwoConnected: boolean;
 }
 
 const initialState: PlayerState = {
@@ -24,6 +26,8 @@ const initialState: PlayerState = {
   receivedPlayerOneName: null,
   receivedPlayerTwoName: null,
   loggedInUser: null,
+  isPlayerOneConnected: false,
+  isPlayerTwoConnected: false,
 };
 
 const playerSlice = createSlice({
@@ -58,6 +62,12 @@ const playerSlice = createSlice({
       state.loggedInUser = action.payload;
     },
     resetPlayerState: () => initialState,
+    setIsPlayerOneConnected: (state, action: PayloadAction<boolean>) => {
+      state.isPlayerOneConnected = action.payload;
+    },
+    setIsPlayerTwoConnected: (state, action: PayloadAction<boolean>) => {
+      state.isPlayerTwoConnected = action.payload;
+    },
   },
 });
 
@@ -72,6 +82,8 @@ export const {
   setReceivedPlayerTwoName,
   setLoggedInUser,
   resetPlayerState,
+  setIsPlayerOneConnected,
+  setIsPlayerTwoConnected,
 } = playerSlice.actions;
 
 export default playerSlice.reducer;

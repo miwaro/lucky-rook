@@ -35,7 +35,7 @@ const ResignButton = ({ socket, gameId, playerId, playerOneId, playerTwoId }: Re
   };
 
   return (
-    <div className="flex gap-3">
+    <div className="flex gap-3 p-3 m-3">
       <motion.button
         whileTap={{ scale: 0.97 }}
         onClick={handleResign}
