@@ -1,6 +1,5 @@
 import { useEffect } from "react";
 import { AppDispatch } from "./store";
-// import { BrowserRouter as Router, Routes, Route, useParams } from "react-router-dom";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import { setLoggedInUser } from "./features/player/playerSlice";
@@ -8,7 +7,6 @@ import NavBar from "./components/navbar/navbar";
 import * as UsersApi from "./network/users_api";
 import Game from "./pages/game";
 import Lobby from "./pages/lobby";
-import Room from "./pages/room";
 
 const App = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -31,8 +29,7 @@ const App = () => {
         <NavBar />
         <Routes>
           <Route path="/" element={<Lobby />} />
-          <Route path="/room/:roomId" element={<Room />} />
-          <Route path="/room/:roomId/game/:gameId" element={<Game />} />
+          <Route path="/:gameId/" element={<Game />} />
         </Routes>
       </div>
     </Router>

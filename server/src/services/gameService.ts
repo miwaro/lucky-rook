@@ -1,50 +1,43 @@
-import { Room, Game } from "../models/game";
+import { Game } from "../models/game";
+import { v4 as uuidv4 } from "uuid";
 
-export const createRoom = async (
-  roomId: string,
+export const addPlayerOne = async (
+  gameId: string,
   playerOne: { userId: string; name: string; color: string }
 ) => {
-  const newRoom = new Room({
-    roomId,
+  const newGame = new Game({
+    gameId,
     playerOne,
     gameStarted: false,
-    gameIds: [],
   });
 
   try {
-    return await newRoom.save();
+    return await newGame.save();
   } catch (error) {
-    console.error("Error creating room:", error);
+    console.error("Error creating game:", error);
     throw error;
   }
 };
 
-export const addPlayerTwoAndCreateGame = async (
+export const addPlayerTwo = async (
   gameId: string,
-  roomId: string,
   playerTwo: { userId: string; name: string; color: string }
 ) => {
-  try {
-    const room = await Room.findOne({ roomId });
+  if (!playerTwo.userId || !playerTwo.name) {
+    console.error("Invalid Player Two data:", playerTwo);
+    throw new Error("PlayerTwo object is invalid");
+  }
 
-    if (!room) {
-      throw new Error("Room not found");
+  try {
+    const game = await Game.findOne({ gameId });
+
+    if (!game) {
+      throw new Error("Game not found");
     }
 
-    room.playerTwo = playerTwo;
+    game.set("playerTwo", playerTwo);
 
-    const newGame = new Game({
-      roomId,
-      gameId,
-      fen: "start",
-      currentTurn: "white",
-      gameStarted: true,
-    });
-
-    const savedGame = await newGame.save();
-
-    await Room.updateOne({ roomId }, { $push: { gameIds: gameId } });
-    await room.save();
+    const savedGame = await game.save();
 
     return savedGame;
   } catch (error) {
@@ -53,21 +46,33 @@ export const addPlayerTwoAndCreateGame = async (
   }
 };
 
-export const getCurrentGameState = async (roomId: string) => {
+export const startGame = async (gameId: string) => {
   try {
-    const room = await Room.findOne({ roomId });
-    if (!room || room.gameIds.length === 0) {
-      throw new Error("Room or current game not found");
-    }
-
-    const lastGameId = room.gameIds[room.gameIds.length - 1];
-
-    const game = await Game.findOne({ gameId: lastGameId });
+    const game = await Game.findOne({ gameId });
 
     if (!game) {
       throw new Error("Game not found");
     }
 
+    game.gameStarted = true;
+    game.fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+    game.currentTurn = "white";
+
+    const savedGame = await game.save();
+
+    return savedGame;
+  } catch (error) {
+    console.error("Error updating Player Two:", error);
+    throw error;
+  }
+};
+
+export const getCurrentGameState = async (gameId: string) => {
+  try {
+    const game = await Game.findOne({ gameId });
+    if (!game) {
+      throw new Error("game not found");
+    }
     return game;
   } catch (error) {
     console.error("Error retrieving game state:", error);
@@ -76,14 +81,15 @@ export const getCurrentGameState = async (roomId: string) => {
 };
 
 export const updateGameState = async (
-  roomId: string,
+  gameId: string,
   fen: string,
-  currentTurn: "white" | "black"
+  currentTurn: "white" | "black",
+  moves: any
 ) => {
   try {
     const updatedGame = await Game.findOneAndUpdate(
-      { roomId },
-      { fen, currentTurn },
+      { gameId },
+      { fen, currentTurn, moves },
       { new: true }
     );
 
@@ -94,17 +100,27 @@ export const updateGameState = async (
   }
 };
 
-export const getRoomState = async (roomId: string) => {
+export const createRematch = async (gameId: string) => {
+  const newGameId = uuidv4().slice(0, 8);
   try {
-    const room = await Room.findOne({ roomId });
+    const game = await Game.findOne({ gameId });
 
-    if (!room || room.gameIds.length === 0) {
-      throw new Error("Room or current game not found");
+    if (!game) {
+      throw new Error("Game not found");
     }
 
-    return room;
+    const newGame = new Game({
+      gameId: newGameId,
+      playerOne: game.playerOne,
+      playerTwo: game.playerTwo,
+      gameStarted: true,
+      fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+      currentTurn: "white",
+    });
+
+    return await newGame.save();
   } catch (error) {
-    console.error("Error retrieving game state:", error);
+    console.error("Error creating new game:", error);
     throw error;
   }
 };

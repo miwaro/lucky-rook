@@ -66,7 +66,7 @@ const NavBar = () => {
       <AppBar
         position="sticky"
         sx={{
-          background: "linear-gradient(to left, #319e2d, #137929)",
+          background: "linear-gradient(to left, #041b01, #03350e)",
         }}
       >
         <Toolbar>

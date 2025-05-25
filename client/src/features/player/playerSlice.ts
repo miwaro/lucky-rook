@@ -1,44 +1,49 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { User } from "../../models/user";
+import { v4 as uuidv4 } from "uuid";
 
 interface PlayerState {
-  playerOneName: string | null;
-  playerOneId: string | null;
-  playerTwoName: string | null;
-  playerTwoId: string | null;
+  playerOneName: string;
+  playerOneId: string;
+  playerTwoName: string;
+  playerTwoId: string;
   isPlayerOne: boolean;
   isPlayerTwo: boolean;
   receivedPlayerOneName: string | null;
   receivedPlayerTwoName: string | null;
   loggedInUser: User | null;
+  isPlayerOneConnected: boolean;
+  isPlayerTwoConnected: boolean;
 }
 
 const initialState: PlayerState = {
-  playerOneName: null,
-  playerOneId: null,
-  playerTwoName: null,
-  playerTwoId: null,
+  playerOneName: "anonymous",
+  playerOneId: uuidv4(),
+  playerTwoName: "anonymous",
+  playerTwoId: uuidv4(),
   isPlayerOne: false,
   isPlayerTwo: false,
   receivedPlayerOneName: null,
   receivedPlayerTwoName: null,
   loggedInUser: null,
+  isPlayerOneConnected: false,
+  isPlayerTwoConnected: false,
 };
 
 const playerSlice = createSlice({
   name: "player",
   initialState,
   reducers: {
-    setPlayerOneName: (state, action: PayloadAction<string | null>) => {
+    setPlayerOneName: (state, action: PayloadAction<string>) => {
       state.playerOneName = action.payload;
     },
-    setPlayerOneId: (state, action: PayloadAction<string | null>) => {
+    setPlayerOneId: (state, action: PayloadAction<string>) => {
       state.playerOneId = action.payload;
     },
-    setPlayerTwoName: (state, action: PayloadAction<string | null>) => {
+    setPlayerTwoName: (state, action: PayloadAction<string>) => {
       state.playerTwoName = action.payload;
     },
-    setPlayerTwoId: (state, action: PayloadAction<string | null>) => {
+    setPlayerTwoId: (state, action: PayloadAction<string>) => {
       state.playerTwoId = action.payload;
     },
     setIsPlayerOne: (state, action: PayloadAction<boolean>) => {
@@ -57,6 +62,12 @@ const playerSlice = createSlice({
       state.loggedInUser = action.payload;
     },
     resetPlayerState: () => initialState,
+    setIsPlayerOneConnected: (state, action: PayloadAction<boolean>) => {
+      state.isPlayerOneConnected = action.payload;
+    },
+    setIsPlayerTwoConnected: (state, action: PayloadAction<boolean>) => {
+      state.isPlayerTwoConnected = action.payload;
+    },
   },
 });
 
@@ -71,6 +82,8 @@ export const {
   setReceivedPlayerTwoName,
   setLoggedInUser,
   resetPlayerState,
+  setIsPlayerOneConnected,
+  setIsPlayerTwoConnected,
 } = playerSlice.actions;
 
 export default playerSlice.reducer;

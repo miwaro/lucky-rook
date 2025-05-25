@@ -3,176 +3,406 @@ import env from "./util/validateEnv";
 import mongoose from "mongoose";
 import http from "http";
 import { Server } from "socket.io";
-import { v4 as uuidv4 } from "uuid";
 import {
-  createRoom as createRoomService,
-  addPlayerTwoAndCreateGame,
+  addPlayerOne as addPlayerOneService,
+  addPlayerTwo as addPlayerTwoService,
+  startGame as startGameService,
+  createRematch as createRematchService,
+  getCurrentGameState,
+  updateGameState,
 } from "./services/gameService";
+import { InMemoryGameState } from "./models/gameInterface";
 
 const port = env.PORT;
-
 const server = http.createServer(app);
 const io = new Server(server);
 
-interface GameState {
-  currentTurn: "white" | "black";
-  fen: string;
-  players: {
-    [userId: string]: {
-      socketId: string | null;
-      color: "white" | "black";
-      name: string;
-    };
-  };
-}
+const games: { [key: string]: InMemoryGameState } = {};
 
-const games: { [roomId: string]: GameState } = {};
+const emitPlayerConnectionStatus = (gameId: string) => {
+  const game = games[gameId];
+  io.to(gameId).emit("playerConnection", {
+    playerOneConnected: !!game?.playerOneSocketId,
+    playerTwoConnected: !!game?.playerTwoSocketId,
+  });
+};
 
 io.on("connection", (socket) => {
-  socket.on("createRoom", async (playerOneName, userId) => {
+  socket.on("createGame", async (playerOneName, userId, gameId) => {
     try {
-      const roomId = uuidv4();
-
       const playerOne = {
         userId,
         name: playerOneName,
         color: "white",
       };
 
-      await createRoomService(roomId, playerOne);
+      await addPlayerOneService(gameId, playerOne);
 
       socket.data.userId = userId;
 
-      games[roomId] = {
+      games[gameId] = {
+        gameId,
+        fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+        gameStarted: false,
+        playerOne,
+        playerTwo: null,
+        moves: [],
         currentTurn: "white",
-        fen: "start",
-        players: {
-          [userId]: {
-            socketId: socket.id,
-            color: "white",
-            name: playerOneName,
-          },
-        },
+        status: "in_progress",
+        result: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        playerOneSocketId: socket.id,
+        playerTwoSocketId: null,
+        rematchRequestedByPlayerOne: false,
+        rematchRequestedByPlayerTwo: false,
+        winner: null,
       };
 
-      socket.emit("roomCreated", { roomId });
+      await socket.join(gameId);
+      emitPlayerConnectionStatus(gameId);
+      socket.emit("gameCreated", { gameId });
     } catch (error) {
-      console.error("Error creating room:", error);
+      console.error("Error creating game:", error);
       socket.emit("error", "Unable to create game.");
     }
   });
 
-  socket.on("joinRoom", async (roomId, userId, playerName) => {
+  socket.on("joinGame", async (gameId, userId, playerName) => {
     try {
+      let game = games[gameId];
+      if (!game) {
+        const dbGame = await getCurrentGameState(gameId);
+        if (!dbGame) {
+          return socket.emit("error", "Game not found.");
+        }
+
+        // Initialize in-memory state from the retrieved game
+        games[gameId] = {
+          gameId: dbGame.gameId,
+          fen: dbGame.fen,
+          gameStarted: dbGame.gameStarted,
+          playerOne: {
+            userId: dbGame.playerOne?.userId || "",
+            name: dbGame.playerOne?.name || "anonymous",
+            color: dbGame.playerOne?.color || "white",
+          },
+          playerTwo: {
+            userId: dbGame.playerTwo?.userId || "",
+            name: dbGame.playerTwo?.name || "anonymous",
+            color: dbGame.playerTwo?.color || "black",
+          },
+          moves: dbGame.moves,
+          currentTurn: dbGame.currentTurn || "white",
+          status: dbGame.status,
+          result: dbGame.result || null,
+          createdAt: dbGame.createdAt,
+          updatedAt: dbGame.updatedAt,
+          playerOneSocketId: null,
+          playerTwoSocketId: null,
+          rematchRequestedByPlayerOne: false,
+          rematchRequestedByPlayerTwo: false,
+          winner: null,
+        };
+      }
       // Check if player is reconnecting
-      if (games[roomId]?.players[userId]) {
-        const playerData = games[roomId].players[userId];
-        playerData.socketId = socket.id;
-
-        await socket.join(roomId);
-        socket.emit("playerColor", playerData.color);
-
-        const game = games[roomId];
-        if (game) {
-          socket.emit("gameState", {
-            fen: game.fen,
-            currentTurn: game.currentTurn,
+      if (game.playerOne?.userId === userId) {
+        game.playerOneSocketId = socket.id;
+        await socket.join(gameId);
+        emitPlayerConnectionStatus(gameId);
+        if (game.playerOneSocketId) {
+          socket.emit("loadGameState", {
+            gameId: games[gameId].gameId,
+            fen: games[gameId].fen,
+            gameStarted: games[gameId].gameStarted,
+            playerOne: games[gameId].playerOne,
+            playerTwo: games[gameId].playerTwo,
+            moves: games[gameId].moves,
+            currentTurn: games[gameId].currentTurn,
+            status: games[gameId].status,
+            result: games[gameId].result,
+            rematchRequestedByPlayerOne:
+              games[gameId].rematchRequestedByPlayerOne,
+            rematchRequestedByPlayerTwo:
+              games[gameId].rematchRequestedByPlayerTwo,
+            winner: games[gameId].winner,
           });
         }
+        return;
+      } else if (game.playerTwo?.userId === userId) {
+        game.playerTwoSocketId = socket.id;
+        await socket.join(gameId);
+        emitPlayerConnectionStatus(gameId);
+        if (game.playerTwoSocketId) {
+          socket.emit("loadGameState", {
+            gameId: games[gameId].gameId,
+            fen: games[gameId].fen,
+            gameStarted: games[gameId].gameStarted,
+            playerOne: games[gameId].playerOne,
+            playerTwo: games[gameId].playerTwo,
+            moves: games[gameId].moves,
+            currentTurn: games[gameId].currentTurn,
+            status: games[gameId].status,
+            result: games[gameId].result,
+            rematchRequestedByPlayerOne:
+              games[gameId].rematchRequestedByPlayerOne,
+            rematchRequestedByPlayerTwo:
+              games[gameId].rematchRequestedByPlayerTwo,
+            winner: games[gameId].winner,
+          });
+        }
+        return;
+      }
+      if (!game.playerTwo) {
+        game.playerTwo = {
+          userId,
+          name: playerName || "anonymous",
+          color: "black",
+        };
+        game.playerTwoSocketId = socket.id;
+
+        await addPlayerTwoService(gameId, game.playerTwo);
+        await socket.join(gameId);
+        emitPlayerConnectionStatus(gameId);
+
+        socket.emit("playerColor", "black");
+        const playerOneName = game.playerOne?.name || "anonymous";
+        const playerOneUserId = game.playerOne?.userId || "";
+        socket.emit("receivePlayerOneInfo", {
+          playerOneName,
+          playerOneUserId,
+        });
       } else {
-        const room = io.sockets.adapter.rooms.get(roomId);
-
-        if (room && room.size >= 2) {
-          return socket.emit("error", "Room is full. Please try another room.");
-        }
-
-        await socket.join(roomId);
-
-        if (room && room.size === 1) {
-          socket.emit("playerColor", "white");
-          games[roomId].players[userId] = {
-            socketId: socket.id,
-            color: "white",
-            name: playerName,
-          };
-        } else if (room && room.size === 2) {
-          socket.emit("playerColor", "black");
-          games[roomId].players[userId] = {
-            socketId: socket.id,
-            color: "black",
-            name: playerName,
-          };
-
-          const playerOneUserId = Object.keys(games[roomId].players).find(
-            (id) => games[roomId].players[id].color === "white"
-          );
-
-          if (playerOneUserId) {
-            const playerOneName = games[roomId].players[playerOneUserId].name;
-            socket.emit("receivePlayerOneName", playerOneName);
-          }
-        }
+        socket.emit("error", "Game is already full. Please try another game.");
       }
     } catch (error) {
-      console.error("Error joining room:", error);
-      socket.emit("error", "Unable to join the room.");
+      console.error("Error joining game:", error);
+      socket.emit("error", "Unable to join the game.");
     }
   });
 
-  socket.on("playerTwoInfo", async (data) => {
-    const { roomId, playerTwoName, playerTwoId } = data;
+  socket.on("startGame", async (gameId, playerTwoName, playerTwoId) => {
+    const game = games[gameId];
+    if (!game) {
+      return socket.emit("error", "Game not found.");
+    }
+    await socket.join(gameId);
 
-    try {
+    games[gameId] = {
+      ...games[gameId],
+      gameStarted: true,
+      playerTwo: {
+        userId: playerTwoId,
+        name: playerTwoName,
+        color: "black",
+      },
+    };
+
+    if (playerTwoId) {
+      game.playerTwo = {
+        userId: playerTwoId,
+        name: playerTwoName,
+        color: "black",
+      };
+      game.playerTwoSocketId = socket.id;
+      io.to(gameId).emit("playerTwoJoined", {
+        playerTwoName,
+        playerTwoId,
+      });
       const playerTwo = {
         userId: playerTwoId,
         name: playerTwoName,
         color: "black",
       };
 
-      const gameId = uuidv4();
-      await addPlayerTwoAndCreateGame(gameId, roomId, playerTwo);
-      io.to(roomId).emit("playerTwoJoined", playerTwoName);
-      io.to(roomId).emit("startGame", gameId);
-    } catch (error) {
-      console.error("Error updating Player Two:", error);
-      socket.emit("error", "Unable to add Player Two.");
+      await addPlayerTwoService(gameId, playerTwo);
     }
-    socket.data.playerTwoName = playerTwoName;
+    await startGameService(gameId);
   });
 
   socket.on("move", (data) => {
-    const roomName = [...socket.rooms][1];
-    const game = games[roomName];
-    const { roomId, sourceSquare, targetSquare, fen } = data;
+    const { gameId, sourceSquare, targetSquare, fen } = data;
+    const game = games[gameId];
 
     if (!game) {
-      return socket.emit("error", "Invalid game room.");
+      return socket.emit("error", "Invalid game.");
     }
 
-    const playerColor = Object.values(game.players).find(
-      (player) => player.socketId === socket.id
-    )?.color;
+    // Determine which player is making the move
+    const player =
+      game.playerOneSocketId === socket.id ? game.playerOne : game.playerTwo;
 
-    if (playerColor !== game.currentTurn) {
+    if (!player) {
+      return socket.emit("error", "Player not found.");
+    }
+
+    if (player.color !== game.currentTurn) {
       return socket.emit("invalidMove", "It's not your turn");
     }
 
     game.fen = fen;
-    socket.to(roomName).emit("move", { sourceSquare, targetSquare });
+    game.moves.push({
+      fen,
+      moveNumber: game.moves.length + 1,
+      color: player.color,
+      from: sourceSquare,
+      to: targetSquare,
+    });
+
     game.currentTurn = game.currentTurn === "white" ? "black" : "white";
-    io.to(roomName).emit("currentTurn", game.currentTurn);
+
+    updateGameState(gameId, fen, game.currentTurn, game.moves).catch(
+      (error) => {
+        console.error("Failed to update game state in the database", error);
+      }
+    );
+
+    io.to(gameId).emit("move", { sourceSquare, targetSquare });
+    io.to(gameId).emit("currentTurn", game.currentTurn);
+    io.to(gameId).emit("moveData", game.moves);
+  });
+
+  socket.on("playerResigns", ({ gameId, isPlayerOne }) => {
+    const game = games[gameId];
+    if (!game) {
+      return;
+    }
+
+    if (isPlayerOne) {
+      io.in(gameId).emit("gameEndsInResignation", { winner: "Black Wins" });
+      game.result = "black_wins";
+    } else {
+      io.in(gameId).emit("gameEndsInResignation", { winner: "White Wins" });
+      game.result = "white_wins";
+    }
+
+    game.status = "completed";
+  });
+
+  socket.on("rematchAction", async ({ gameId, action, isPlayerOne }) => {
+    const game = games[gameId];
+    if (!game) {
+      return socket.emit("error", "Game not found.");
+    }
+
+    switch (action) {
+      case "request":
+        if (isPlayerOne) {
+          game.rematchRequestedByPlayerOne = true;
+        } else {
+          game.rematchRequestedByPlayerTwo = true;
+        }
+
+        io.to(gameId).emit("rematchStatus", {
+          requestedByPlayerOne: game.rematchRequestedByPlayerOne,
+          requestedByPlayerTwo: game.rematchRequestedByPlayerTwo,
+          message: "Waiting for opponent...",
+          waiting: true,
+        });
+
+        if (
+          game.rematchRequestedByPlayerOne &&
+          game.rematchRequestedByPlayerTwo
+        ) {
+          const newGame = await createRematchService(gameId);
+
+          // Add both players to the new game's room
+          if (game.playerOneSocketId) {
+            io.sockets.sockets
+              .get(game.playerOneSocketId)
+              ?.join(newGame.gameId);
+          }
+          if (game.playerTwoSocketId) {
+            io.sockets.sockets
+              .get(game.playerTwoSocketId)
+              ?.join(newGame.gameId);
+          }
+          emitPlayerConnectionStatus(newGame.gameId);
+
+          // Update the in-memory game state for the new game
+          games[newGame.gameId] = {
+            ...games[gameId],
+            gameId: newGame.gameId,
+            fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+            moves: [],
+            currentTurn: "white",
+            rematchRequestedByPlayerOne: false,
+            rematchRequestedByPlayerTwo: false,
+            result: null,
+            playerOneSocketId: game.playerOneSocketId,
+            playerTwoSocketId: game.playerTwoSocketId,
+          };
+
+          io.to(newGame.gameId).emit("startNewGame", newGame.gameId);
+          io.to(newGame.gameId).emit("loadGameState", {
+            gameId: games[newGame.gameId].gameId,
+            fen: games[newGame.gameId].fen,
+            gameStarted: games[newGame.gameId].gameStarted,
+            playerOne: games[newGame.gameId].playerOne,
+            playerTwo: games[newGame.gameId].playerTwo,
+            moves: games[newGame.gameId].moves,
+            currentTurn: games[newGame.gameId].currentTurn,
+            status: games[newGame.gameId].status,
+            result: games[newGame.gameId].result,
+            rematchRequestedByPlayerOne:
+              games[newGame.gameId].rematchRequestedByPlayerOne,
+            rematchRequestedByPlayerTwo:
+              games[newGame.gameId].rematchRequestedByPlayerTwo,
+            winner: games[newGame.gameId].winner,
+          });
+        }
+        break;
+
+      case "decline":
+        game.rematchRequestedByPlayerOne = false;
+        game.rematchRequestedByPlayerTwo = false;
+        io.in(gameId).emit("rematchStatus", {
+          requestedByPlayerOne: false,
+          requestedByPlayerTwo: false,
+          message: "Match Declined",
+          waiting: false,
+        });
+        break;
+
+      default:
+        console.error("Invalid action received:", action);
+    }
+  });
+
+  socket.on("leaveRoom", (gameId, isPlayerOne) => {
+    const game = games[gameId];
+    if (!game) {
+      console.warn(`Game ${gameId} not found during leaveRoom`);
+      return;
+    }
+
+    if (isPlayerOne) {
+      game.playerOneSocketId = null;
+      io.to(gameId).emit("playerConnection", {
+        playerId: game.playerOne?.userId,
+        playerOneConnected: false,
+        playerTwoConnected: true,
+      });
+    } else if (!isPlayerOne) {
+      game.playerTwoSocketId = null;
+      io.to(gameId).emit("playerConnection", {
+        playerId: game.playerTwo?.userId,
+        playerTwoConnected: false,
+        playerOneConnected: true,
+      });
+    }
   });
 
   socket.on("disconnect", () => {
     console.log("A user disconnected:", socket.id);
-    for (const roomId in games) {
-      const game = games[roomId];
-      for (const userId in game.players) {
-        if (game.players[userId].socketId === socket.id) {
-          game.players[userId].socketId = null;
-          break;
-        }
+    for (const gameId in games) {
+      const game = games[gameId];
+      if (game.playerOneSocketId === socket.id) {
+        game.playerOneSocketId = null;
+      } else if (game.playerTwoSocketId === socket.id) {
+        game.playerTwoSocketId = null;
       }
+      emitPlayerConnectionStatus(gameId);
     }
   });
 });
