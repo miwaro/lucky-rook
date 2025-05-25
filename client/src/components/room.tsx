@@ -18,8 +18,6 @@ import {
   setIsPlayerOneConnected,
   setIsPlayerTwoConnected,
 } from "../features/player/playerSlice";
-import { Chessboard } from "react-chessboard";
-import PlayerNames from "./playerModule/playerNames";
 
 const Room: React.FC = () => {
   const socketRef = useRef(getSocketInstance());
@@ -30,6 +28,12 @@ const Room: React.FC = () => {
   const { loggedInUser, isPlayerTwo, isPlayerOne, playerOneId } = useSelector((state: RootState) => state.player);
   const { gameStarted } = useSelector((state: RootState) => state.game);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (isPlayerTwo) {
+      setLoading(false);
+    }
+  }, [isPlayerTwo]);
 
   useEffect(() => {
     if (!gameStarted) setLoading(false);
@@ -125,32 +129,13 @@ const Room: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex">
-        <div className="border-2 border-stone-950 p-4 bg-stone-800 rounded-lg">
-          <Chessboard
-            boardWidth={500}
-            customNotationStyle={{
-              color: "#000",
-              fontWeight: "bold",
-              fontSize: "15px",
-            }}
-            customBoardStyle={{
-              borderRadius: "6px",
-              boxShadow: "0 2px 10px rgba(0, 0, 0, 0.5)",
-            }}
-          />
-        </div>
-        <PlayerNames />
+      <div className="flex justify-center items-center h-full">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-white"></div>
       </div>
     );
   }
 
-  return (
-    <div className="room-setup">
-      {!isPlayerTwo && <LinkShare />}
-      {isPlayerTwo && <PlayerTwoJoin />}
-    </div>
-  );
+  return <div className="room-setup">{isPlayerTwo ? <PlayerTwoJoin /> : <LinkShare />}</div>;
 };
 
 export default Room;

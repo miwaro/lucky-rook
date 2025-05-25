@@ -117,7 +117,7 @@ const PlayerNames: React.FC = () => {
 
   return (
     <div className="flex flex-col gap-3 p-3 items-center">
-      <div className="ml-8 border-4 p-3 m-3 border-stone-900 rounded">
+      <div className="border-4 p-3 m-3 border-stone-900 bg-stone-900/30 rounded-md backdrop-blur-lg">
         <div className="flex justify-center gap-3 mb-3">
           <div className="h-20 w-16 border-2 border-stone-950  rounded-md  bg-stone-800"></div>
           <div className="h-20 w-16 border-2 border-stone-950 rounded-md bg-stone-800"></div>
@@ -126,12 +126,16 @@ const PlayerNames: React.FC = () => {
         <div>
           {boardOrientation === "white" ? (
             <div className="flex gap-2 items-center border-2 bg-stone-900/30 rounded-md p-2 backdrop-blur-lg">
-              <div className={`w-2 h-2 rounded-full ${isPlayerTwoConnected ? "bg-green-500" : "bg-red-500"}`}></div>
+              <div
+                className={`w-2 h-2 rounded-full mt-1 ${isPlayerTwoConnected ? "bg-green-500" : "bg-red-500"}`}
+              ></div>
               <h2 className="text-center text-stone-100 font-semibold">{receivedPlayerTwoName || playerTwoName}</h2>
             </div>
           ) : (
             <div className="flex gap-2 items-center border-2 bg-stone-900/30 rounded-md p-2 backdrop-blur-lg">
-              <div className={`w-2 h-2 rounded-full ${isPlayerOneConnected ? "bg-green-500" : "bg-red-500"}`}></div>
+              <div
+                className={`w-2 h-2 rounded-full mt-1 ${isPlayerOneConnected ? "bg-green-500" : "bg-red-500"}`}
+              ></div>
               <h2 className="text-center text-stone-100 font-semibold">{receivedPlayerOneName || playerOneName}</h2>
             </div>
           )}
@@ -159,20 +163,17 @@ const PlayerNames: React.FC = () => {
             </div>
           )}
 
-          {isGameOver && (
-            // <div className="flex gap-4 items-center border-2 bg-stone-900/30 rounded-md p-3 backdrop-blur-lg">
-            <div className="flex justify-center p-3 m-3">{renderRematchButtons()}</div>
-          )}
+          {isGameOver && <div className="flex justify-center p-3 m-3">{renderRematchButtons()}</div>}
         </div>
         {boardOrientation === "black" ? (
           <div className="flex gap-2 items-center border-2 bg-stone-900/30 rounded-md p-2 backdrop-blur-lg">
-            <div className={`w-2 h-2 rounded-full ${isPlayerTwoConnected ? "bg-green-500" : "bg-red-500"}`}></div>
-            <h2 className="text-center text-stone-100 font-semibold">{receivedPlayerTwoName || playerTwoName}</h2>
+            <div className={`w-2 h-2 rounded-full mt-1 ${isPlayerTwoConnected ? "bg-green-500" : "bg-red-500"}`}></div>
+            <h2 className=" text-stone-100 font-semibold">{receivedPlayerTwoName || playerTwoName}</h2>
           </div>
         ) : (
-          <div className="flex gap-2 items-center border-2 bg-stone-900/30 rounded-md p-2 backdrop-blur-lg">
-            <div className={`w-2 h-2 rounded-full ${isPlayerOneConnected ? "bg-green-500" : "bg-red-500"}`}></div>
-            <h2 className="text-center text-stone-100 font-semibold">{receivedPlayerOneName || playerOneName}</h2>
+          <div className="flex gap-2 items-center  border-2 bg-stone-900/30 rounded-md p-2 backdrop-blur-lg">
+            <div className={`w-2 h-2 rounded-full mt-1 ${isPlayerOneConnected ? "bg-green-500" : "bg-red-500"}`}></div>
+            <h2 className="text-stone-100 font-semibold ">{receivedPlayerOneName || playerOneName}</h2>
           </div>
         )}
         <div className="flex justify-center gap-3 mt-3">

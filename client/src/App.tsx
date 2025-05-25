@@ -1,6 +1,5 @@
 import { useEffect } from "react";
 import { AppDispatch } from "./store";
-// import { BrowserRouter as Router, Routes, Route, useParams } from "react-router-dom";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import { setLoggedInUser } from "./features/player/playerSlice";

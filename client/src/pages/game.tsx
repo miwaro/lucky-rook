@@ -16,6 +16,7 @@ import {
   setIsGameOver,
 } from "../features/game/gameSlice";
 import Room from "../components/room";
+import { motion } from "framer-motion";
 
 interface MoveData {
   sourceSquare: string;
@@ -26,28 +27,13 @@ const Game: React.FC = () => {
   const [game] = useState(new Chess());
   const socket = useMemo(() => getSocketInstance(), []);
   const navigate = useNavigate();
-  const { isPlayerOne, isPlayerTwo } = useSelector((state: RootState) => state.player);
+  const { loggedInUser, isPlayerOne, isPlayerTwo } = useSelector((state: RootState) => state.player);
   const { fen, boardOrientation, gameStarted, result, isGameOver, currentTurn } = useSelector(
     (state: RootState) => state.game
   );
   const { gameId } = useParams<{ gameId: string }>();
 
   const dispatch = useDispatch<AppDispatch>();
-
-  useEffect(() => {
-    if (gameId) {
-      socket.emit("joinRoom", { gameId });
-    }
-
-    socket.on("gameJoined", (message) => {
-      console.log("Game joined confirmation:", message);
-    });
-
-    return () => {
-      console.log("Leaving room:", gameId);
-      socket.emit("leaveRoom", { gameId });
-    };
-  }, [socket, gameId]);
 
   useEffect(() => {
     socket.on("loadGameState", (gameState) => {
@@ -70,18 +56,22 @@ const Game: React.FC = () => {
   }, [socket, game, dispatch]);
 
   useEffect(() => {
-    socket.on("startNewGame", (newGameId) => {
+    socket.on("startNewGame", (newGameId: string) => {
       game.load("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
       dispatch(setIsGameOver(false));
+      dispatch(setResult(""));
       dispatch(setFen(game.fen()));
       dispatch(setMoves([]));
       dispatch(setCurrentTurn("white"));
       navigate(`/${newGameId}`);
+      const playerId = localStorage.getItem("playerId");
+      const playerName = loggedInUser?.username || "anonymous";
+      socket.emit("joinGame", newGameId, playerId, playerName);
     });
     return () => {
       socket.off("startNewGame");
     };
-  }, [socket, game, navigate, dispatch]);
+  }, [socket, game, navigate, dispatch, loggedInUser]);
 
   useEffect(() => {
     const piecePlacement = fen.split(" ")[0];
@@ -92,11 +82,13 @@ const Game: React.FC = () => {
     if (!hasWhiteKing) {
       alert("BLACK WINS!");
       dispatch(setResult("BLACK WINS"));
+      dispatch(setIsGameOver(true));
     }
 
     if (!hasBlackKing) {
       alert("WHITE WINS!");
       dispatch(setResult("WHITE WINS"));
+      dispatch(setIsGameOver(true));
     }
   }, [fen, dispatch]);
 
@@ -160,8 +152,15 @@ const Game: React.FC = () => {
 
   return (
     <div className="absolute inset-0 flex items-center justify-center z-0">
-      {gameStarted ? (
-        <div className="flex items-center">
+      {!gameStarted ? (
+        <Room />
+      ) : (
+        <motion.div
+          className="flex items-center"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.5 }}
+        >
           <div className="border-2 border-stone-950 p-4 bg-stone-800 rounded-lg">
             <Chessboard
               position={fen}
@@ -169,23 +168,16 @@ const Game: React.FC = () => {
               boardWidth={500}
               onPieceDrop={onDrop}
               arePiecesDraggable={canDrag}
-              customNotationStyle={{
-                color: "#000",
-                fontWeight: "bold",
-                fontSize: "15px",
-              }}
               customBoardStyle={{
                 borderRadius: "6px",
                 boxShadow: "0 2px 10px rgba(0, 0, 0, 0.5)",
               }}
             />
           </div>
-          <div>
+          <div className="ml-4">
             <PlayerNames />
           </div>
-        </div>
-      ) : (
-        <Room />
+        </motion.div>
       )}
     </div>
   );

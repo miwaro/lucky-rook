@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 import React, { useEffect } from "react";
 import { FaRegClipboard } from "react-icons/fa";
 import { motion } from "framer-motion";
@@ -6,8 +7,9 @@ import { useSelector, useDispatch } from "react-redux";
 import { RootState, AppDispatch } from "../store";
 import "react-toastify/dist/ReactToastify.css";
 import FormatQuoteIcon from "@mui/icons-material/FormatQuote";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { setPlayerOneId, setPlayerOneName } from "../features/player/playerSlice";
+import { setLink } from "../features/link/linkSlice";
 
 const LinkShare: React.FC = () => {
   const navigate = useNavigate();
@@ -15,6 +17,12 @@ const LinkShare: React.FC = () => {
   const { playerOneName, loggedInUser } = useSelector((state: RootState) => state.player);
   const { link } = useSelector((state: RootState) => state.link);
   const dispatch = useDispatch<AppDispatch>();
+  const { gameId } = useParams<{ gameId: string }>();
+
+  useEffect(() => {
+    const link = `${window.location.origin}/${gameId}`;
+    dispatch(setLink(link));
+  }, []);
 
   useEffect(() => {
     if (loggedInUser) {
@@ -28,7 +36,6 @@ const LinkShare: React.FC = () => {
     if (!playerOneName && !loggedInUser) {
       navigate("/");
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loggedInUser, playerOneName]);
 
   const copyLinkToClipboard = () => {

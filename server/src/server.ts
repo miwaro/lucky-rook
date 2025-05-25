@@ -22,8 +22,8 @@ const games: { [key: string]: InMemoryGameState } = {};
 const emitPlayerConnectionStatus = (gameId: string) => {
   const game = games[gameId];
   io.to(gameId).emit("playerConnection", {
-    playerOneConnected: !!game.playerOneSocketId,
-    playerTwoConnected: !!game.playerTwoSocketId,
+    playerOneConnected: !!game?.playerOneSocketId,
+    playerTwoConnected: !!game?.playerTwoSocketId,
   });
 };
 
@@ -42,7 +42,7 @@ io.on("connection", (socket) => {
 
       games[gameId] = {
         gameId,
-        fen: "start",
+        fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
         gameStarted: false,
         playerOne,
         playerTwo: null,
@@ -186,6 +186,7 @@ io.on("connection", (socket) => {
     if (!game) {
       return socket.emit("error", "Game not found.");
     }
+    await socket.join(gameId);
 
     games[gameId] = {
       ...games[gameId],
@@ -316,22 +317,39 @@ io.on("connection", (socket) => {
               .get(game.playerTwoSocketId)
               ?.join(newGame.gameId);
           }
-          emitPlayerConnectionStatus(gameId);
+          emitPlayerConnectionStatus(newGame.gameId);
 
           // Update the in-memory game state for the new game
           games[newGame.gameId] = {
             ...games[gameId],
             gameId: newGame.gameId,
-            fen: "start",
+            fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
             moves: [],
             currentTurn: "white",
             rematchRequestedByPlayerOne: false,
             rematchRequestedByPlayerTwo: false,
             result: null,
+            playerOneSocketId: game.playerOneSocketId,
+            playerTwoSocketId: game.playerTwoSocketId,
           };
 
-          // Notify both players of the new game
           io.to(newGame.gameId).emit("startNewGame", newGame.gameId);
+          io.to(newGame.gameId).emit("loadGameState", {
+            gameId: games[newGame.gameId].gameId,
+            fen: games[newGame.gameId].fen,
+            gameStarted: games[newGame.gameId].gameStarted,
+            playerOne: games[newGame.gameId].playerOne,
+            playerTwo: games[newGame.gameId].playerTwo,
+            moves: games[newGame.gameId].moves,
+            currentTurn: games[newGame.gameId].currentTurn,
+            status: games[newGame.gameId].status,
+            result: games[newGame.gameId].result,
+            rematchRequestedByPlayerOne:
+              games[newGame.gameId].rematchRequestedByPlayerOne,
+            rematchRequestedByPlayerTwo:
+              games[newGame.gameId].rematchRequestedByPlayerTwo,
+            winner: games[newGame.gameId].winner,
+          });
         }
         break;
 
@@ -348,6 +366,30 @@ io.on("connection", (socket) => {
 
       default:
         console.error("Invalid action received:", action);
+    }
+  });
+
+  socket.on("leaveRoom", (gameId, isPlayerOne) => {
+    const game = games[gameId];
+    if (!game) {
+      console.warn(`Game ${gameId} not found during leaveRoom`);
+      return;
+    }
+
+    if (isPlayerOne) {
+      game.playerOneSocketId = null;
+      io.to(gameId).emit("playerConnection", {
+        playerId: game.playerOne?.userId,
+        playerOneConnected: false,
+        playerTwoConnected: true,
+      });
+    } else if (!isPlayerOne) {
+      game.playerTwoSocketId = null;
+      io.to(gameId).emit("playerConnection", {
+        playerId: game.playerTwo?.userId,
+        playerTwoConnected: false,
+        playerOneConnected: true,
+      });
     }
   });
 

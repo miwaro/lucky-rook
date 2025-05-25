@@ -1,11 +1,25 @@
 import { useRef, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useSelector, useDispatch } from "react-redux";
-import { setPlayerTwoName, setPlayerTwoId } from "../features/player/playerSlice";
+import {
+  setPlayerTwoName,
+  setPlayerTwoId,
+  setIsPlayerOne,
+  setIsPlayerTwo,
+  setPlayerOneId,
+  setPlayerOneName,
+} from "../features/player/playerSlice";
 import { RootState, AppDispatch } from "../store";
 import getSocketInstance from "../socket";
 import { useParams } from "react-router-dom";
-import { setGameId } from "../features/game/gameSlice";
+import {
+  setBoardOrientation,
+  setCurrentTurn,
+  setFen,
+  setGameId,
+  setGameStarted,
+  setMoves,
+} from "../features/game/gameSlice";
 
 const PlayerTwoJoin: React.FC = () => {
   const socketRef = useRef(getSocketInstance());
@@ -14,6 +28,40 @@ const PlayerTwoJoin: React.FC = () => {
 
   const { loggedInUser, playerTwoName, playerTwoId, isPlayerOne } = useSelector((state: RootState) => state.player);
   const dispatch = useDispatch<AppDispatch>();
+
+  useEffect(() => {
+    if (gameId) {
+      const playerId = localStorage.getItem("playerId");
+      socket.emit("joinGame", gameId, playerId);
+
+      socket.on("loadGameState", (gameState) => {
+        if (playerId === gameState.playerOne.userId) {
+          dispatch(setPlayerOneId(gameState.playerOne.userId));
+          dispatch(setIsPlayerOne(true));
+          dispatch(setIsPlayerTwo(false));
+          dispatch(setBoardOrientation("white"));
+        } else if (gameState.playerTwo && playerId === gameState.playerTwo.userId) {
+          dispatch(setIsPlayerTwo(true));
+          dispatch(setIsPlayerOne(false));
+          dispatch(setBoardOrientation("black"));
+        }
+
+        dispatch(setPlayerOneName(gameState.playerOne.name));
+        dispatch(setPlayerTwoName(gameState.playerTwo?.name));
+        dispatch(setCurrentTurn(gameState.currentTurn));
+        dispatch(setFen(gameState.fen));
+        dispatch(setMoves(gameState.moves));
+
+        if (gameState.gameStarted) {
+          dispatch(setGameStarted(true));
+        }
+      });
+
+      return () => {
+        socket.off("loadGameState");
+      };
+    }
+  }, [gameId, socket, dispatch]);
 
   useEffect(() => {
     if (gameId) {

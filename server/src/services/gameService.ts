@@ -55,7 +55,7 @@ export const startGame = async (gameId: string) => {
     }
 
     game.gameStarted = true;
-    game.fen = "start";
+    game.fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
     game.currentTurn = "white";
 
     const savedGame = await game.save();
@@ -114,7 +114,7 @@ export const createRematch = async (gameId: string) => {
       playerOne: game.playerOne,
       playerTwo: game.playerTwo,
       gameStarted: true,
-      fen: "start",
+      fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
       currentTurn: "white",
     });
 
